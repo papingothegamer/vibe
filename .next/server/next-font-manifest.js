@@ -1,0 +1,1 @@
+self.__NEXT_FONT_MANIFEST="{\"pages\":{},\"app\":{\"/Users/toluwanimidaramola/Documents/Projects/vibe/app/layout\":[\"static/media/a34f9d1faa5f3315-s.p.woff2\",\"static/media/285d44360adb7279-s.p.woff2\",\"static/media/086a70ddba625929-s.p.woff2\",\"static/media/271f77516f49b23e-s.p.woff2\"]},\"appUsingSizeAdjust\":true,\"pagesUsingSizeAdjust\":false}"
