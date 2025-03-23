@@ -63,7 +63,7 @@ export function MoodboardSidebar({
   return (
     <div className="w-full md:w-64 h-full flex flex-col border-r border-border/50 pr-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium font-clash">Your Moodboards</h2>
+        <h2 className="text-lg font-medium font-clash select-none">Your Moodboards</h2>
         <Button size="sm" variant="outline" onClick={onCreateMoodboard} className="flex items-center gap-1">
           <FolderPlus className="h-4 w-4" />
           <span className="sr-only md:not-sr-only">New</span>

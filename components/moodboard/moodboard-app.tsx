@@ -279,7 +279,7 @@ export function MoodboardApp() {
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          <h1 className="font-clash text-xl md:text-2xl font-medium truncate">
+          <h1 className="font-clash text-xl md:text-2xl font-medium truncate select-none">
             {currentMoodboard?.title || "Untitled Moodboard"}
           </h1>
         </div>
