@@ -163,42 +163,56 @@ export function MoodboardApp() {
   }
 
   const saveMoodboard = async (updatedMoodboard: MoodboardType) => {
+    if (!updatedMoodboard || !user) return
     setIsSaving(true)
+
     try {
+      // Log the update payload for debugging
+      console.log('Saving moodboard:', {
+        id: updatedMoodboard.id,
+        title: updatedMoodboard.title,
+        user_id: user.id
+      })
+
       const { error } = await supabase
-        .from("moodboards")
+        .from('moodboards')
         .update({
           title: updatedMoodboard.title,
-          items: updatedMoodboard.items,
           background_color: updatedMoodboard.background_color,
-          updated_at: new Date().toISOString(),
-          is_saved: true
+          items: updatedMoodboard.items,
+          updated_at: new Date().toISOString()
         })
-        .eq("id", updatedMoodboard.id)
-        .eq("user_id", user?.id)
+        .eq('id', updatedMoodboard.id)
+        .eq('user_id', user.id)
+        .single()
 
       if (error) throw error
 
       // Update local state
-      setMoodboards(moodboards.map((mb) => (mb.id === updatedMoodboard.id ? updatedMoodboard : mb)))
       setCurrentMoodboard(updatedMoodboard)
       setHasUnsavedChanges(false)
 
       toast({
-        title: "Moodboard saved",
-        description: "Your changes have been saved successfully.",
+        title: "Changes saved",
+        description: "Your moodboard has been updated successfully."
       })
     } catch (error: any) {
-      console.error("Error saving moodboard:", error)
+      console.error("Error saving moodboard:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      })
+      
       toast({
         variant: "destructive",
         title: "Error saving moodboard",
-        description: error.message || "Please try again later.",
+        description: error.message || "Please try again later."
       })
     } finally {
       setIsSaving(false)
     }
   }
+
 
   const handleMoodboardChange = (updatedMoodboard: MoodboardType) => {
     setCurrentMoodboard(updatedMoodboard)

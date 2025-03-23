@@ -45,8 +45,8 @@ export type Database = {
     Tables: {
       moodboards: {
         Row: Moodboard
-        Insert: Omit<Moodboard, "id" | "created_at" | "updated_at">
-        Update: Partial<Moodboard>
+        Insert: Omit<Moodboard, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Moodboard, 'id' | 'created_at' | 'user_id'>>
       }
     }
   }

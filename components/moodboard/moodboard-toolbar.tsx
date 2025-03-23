@@ -41,15 +41,24 @@ export function MoodboardToolbar({
     await onSave(moodboard)
   }
 
-  const handleTitleChange = () => {
+  const handleTitleChange = async () => {
     if (!moodboard) return
-
-    const updatedMoodboard = {
-      ...moodboard,
-      title,
+    
+    try {
+      const updatedMoodboard = {
+        ...moodboard,
+        title: title.trim(), // Ensure title is trimmed
+      }
+      
+      await onSave(updatedMoodboard)
+      setIsEditingTitle(false)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error updating title",
+        description: "Failed to update moodboard title. Please try again."
+      })
     }
-    onSave(updatedMoodboard)
-    setIsEditingTitle(false)
   }
 
   const handleExport = async () => {
