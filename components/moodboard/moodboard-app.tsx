@@ -7,9 +7,18 @@ import { MoodboardToolbar } from "@/components/moodboard/moodboard-toolbar"
 import { MoodboardSidebar } from "@/components/moodboard/moodboard-sidebar"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { LogOut, Menu, X } from "lucide-react"
+import { LogOut, Menu, X, User, ChevronDown, Save, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { MoodboardType } from "@/types/moodboard"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function MoodboardApp() {
   const { supabase, user } = useSupabase()
@@ -17,6 +26,8 @@ export function MoodboardApp() {
   const [currentMoodboard, setCurrentMoodboard] = useState<MoodboardType | null>(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
 
   // Load user's moodboards
@@ -55,6 +66,38 @@ export function MoodboardApp() {
     fetchMoodboards()
   }, [user, supabase, toast])
 
+  // Set up real-time subscription for moodboard deletions
+  useEffect(() => {
+    const channel = supabase
+      .channel('moodboards')
+      .on('postgres_changes', 
+        { 
+          event: 'DELETE', 
+          schema: 'public', 
+          table: 'moodboards' 
+        },
+        (payload) => {
+          // Remove the deleted moodboard from state
+          setMoodboards(prev => 
+            prev.filter(board => board.id !== payload.old.id)
+          )
+          // If the deleted moodboard was selected, clear selection
+          if (currentMoodboard?.id === payload.old.id) {
+            setCurrentMoodboard(null)
+          }
+          toast({
+            title: "Moodboard deleted",
+            description: "The moodboard has been removed"
+          })
+        }
+      )
+      .subscribe()
+    
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, currentMoodboard, toast])
+
   // Handle responsive sidebar
   useEffect(() => {
     const handleResize = () => {
@@ -71,6 +114,18 @@ export function MoodboardApp() {
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
   }, [])
+
+  // Add unsaved changes warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   const createNewMoodboard = async () => {
     if (!user) return
@@ -108,6 +163,7 @@ export function MoodboardApp() {
   }
 
   const saveMoodboard = async (updatedMoodboard: MoodboardType) => {
+    setIsSaving(true)
     try {
       const { error } = await supabase
         .from("moodboards")
@@ -116,58 +172,55 @@ export function MoodboardApp() {
           items: updatedMoodboard.items,
           background_color: updatedMoodboard.background_color,
           updated_at: new Date().toISOString(),
+          is_saved: true
         })
         .eq("id", updatedMoodboard.id)
+        .eq("user_id", user?.id)
 
       if (error) throw error
 
       // Update local state
       setMoodboards(moodboards.map((mb) => (mb.id === updatedMoodboard.id ? updatedMoodboard : mb)))
       setCurrentMoodboard(updatedMoodboard)
+      setHasUnsavedChanges(false)
 
       toast({
         title: "Moodboard saved",
         description: "Your changes have been saved successfully.",
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving moodboard:", error)
       toast({
         variant: "destructive",
         title: "Error saving moodboard",
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
       })
+    } finally {
+      setIsSaving(false)
     }
+  }
+
+  const handleMoodboardChange = (updatedMoodboard: MoodboardType) => {
+    setCurrentMoodboard(updatedMoodboard)
+    setHasUnsavedChanges(true)
   }
 
   const deleteMoodboard = async (id: string) => {
     try {
-      const { error } = await supabase.from("moodboards").delete().eq("id", id)
+      const { error } = await supabase
+        .from("moodboards")
+        .delete()
+        .match({ id, user_id: user?.id })
 
       if (error) throw error
-
-      // Update local state
-      const updatedMoodboards = moodboards.filter((mb) => mb.id !== id)
-      setMoodboards(updatedMoodboards)
-
-      // Set a new current moodboard if the deleted one was selected
-      if (currentMoodboard?.id === id) {
-        if (updatedMoodboards.length > 0) {
-          setCurrentMoodboard(updatedMoodboards[0])
-        } else {
-          createNewMoodboard()
-        }
-      }
-
-      toast({
-        title: "Moodboard deleted",
-        description: "Your moodboard has been deleted.",
-      })
-    } catch (error) {
+      
+      // The real-time subscription will handle UI updates
+    } catch (error: any) {
       console.error("Error deleting moodboard:", error)
       toast({
         variant: "destructive",
-        title: "Error deleting moodboard",
-        description: "Please try again later.",
+        title: "Delete failed",
+        description: error.message
       })
     }
   }
@@ -188,22 +241,64 @@ export function MoodboardApp() {
     )
   }
 
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return "U"
+    const name = user.user_metadata?.full_name || user.email || ""
+    return name
+      .split(" ")
+      .map((part: string) => part[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-full w-full">
-      <div className="flex justify-between items-center mb-4 md:mb-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex flex-col h-full w-full"
+      style={{ height: "calc(100vh - 8rem)" }}
+    >
+      <div className="flex justify-between items-center mb-4 bg-background/50 backdrop-blur-sm py-3 px-4 rounded-lg border border-border/30 shadow-sm">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          <h1 className="font-clash text-xl md:text-3xl truncate">{currentMoodboard?.title || "Untitled Moodboard"}</h1>
+          <h1 className="font-clash text-xl md:text-2xl font-medium truncate">
+            {currentMoodboard?.title || "Untitled Moodboard"}
+          </h1>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleSignOut}>
-          <LogOut className="h-5 w-5" />
-          <span className="sr-only">Sign out</span>
-        </Button>
+
+        <div className="flex items-center gap-2">
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} />
+                  <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                </Avatar>
+                <span className="hidden md:inline-block">{user?.user_metadata?.full_name || user?.email}</span>
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      <div className="flex flex-1 gap-4 h-[calc(100vh-8rem)] moodboard-layout">
+      <div className="flex flex-1 gap-4 moodboard-layout">
         <AnimatePresence>
           {sidebarOpen && (
             <motion.div
@@ -211,12 +306,21 @@ export function MoodboardApp() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
-              className="moodboard-sidebar"
+              className="moodboard-sidebar w-64 h-full"
             >
               <MoodboardSidebar
                 moodboards={moodboards}
                 currentMoodboard={currentMoodboard}
-                onSelectMoodboard={setCurrentMoodboard}
+                onSelectMoodboard={(board) => {
+                  if (hasUnsavedChanges) {
+                    if (window.confirm("You have unsaved changes. Do you want to discard them?")) {
+                      setCurrentMoodboard(board)
+                      setHasUnsavedChanges(false)
+                    }
+                  } else {
+                    setCurrentMoodboard(board)
+                  }
+                }}
                 onCreateMoodboard={createNewMoodboard}
                 onDeleteMoodboard={deleteMoodboard}
               />
@@ -225,20 +329,23 @@ export function MoodboardApp() {
         </AnimatePresence>
 
         <div className="flex-1 flex flex-col">
-          <MoodboardToolbar moodboard={currentMoodboard} onSave={saveMoodboard} />
+      <MoodboardToolbar 
+        moodboard={currentMoodboard} 
+        onSave={saveMoodboard} 
+        isSaving={isSaving}
+        hasUnsavedChanges={hasUnsavedChanges}
+      />
 
-          <div className="flex-1 moodboard-canvas-container">
-            {currentMoodboard && (
-              <MoodboardCanvas
-                moodboard={currentMoodboard}
-                onChange={(updatedMoodboard) => setCurrentMoodboard(updatedMoodboard)}
-                onSave={saveMoodboard}
-              />
-            )}
-          </div>
-        </div>
+<div className="flex-1 moodboard-canvas-container">
+        {currentMoodboard && (
+          <MoodboardCanvas
+            moodboard={currentMoodboard}
+            onChange={handleMoodboardChange}
+          />
+        )}
+      </div>
+    </div>
       </div>
     </motion.div>
   )
 }
-

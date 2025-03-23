@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useDropzone } from "react-dropzone"
 import { extractColors } from "@/lib/color-extractor"
@@ -17,10 +17,9 @@ import { v4 as uuidv4 } from "uuid"
 interface MoodboardCanvasProps {
   moodboard: MoodboardType
   onChange: (moodboard: MoodboardType) => void
-  onSave: (moodboard: MoodboardType) => void
 }
 
-export function MoodboardCanvas({ moodboard, onChange, onSave }: MoodboardCanvasProps) {
+export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
   const { supabase, user } = useSupabase()
   const { toast } = useToast()
   const [isDragging, setIsDragging] = useState(false)
@@ -38,8 +37,18 @@ export function MoodboardCanvas({ moodboard, onChange, onSave }: MoodboardCanvas
   }
 
   const handleItemUpdate = (updatedItem: ItemType) => {
-    const updatedItems = moodboard.items.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-    onChange({ ...moodboard, items: updatedItems })
+    // Make sure we're creating a new array to trigger re-renders properly
+    const updatedItems = moodboard.items.map((item) => 
+      item.id === updatedItem.id ? { ...updatedItem } : item
+    )
+    
+    // Create a new moodboard object to ensure state updates
+    const updatedMoodboard = {
+      ...moodboard,
+      items: updatedItems,
+    }
+    
+    onChange(updatedMoodboard)
   }
 
   const handleAddText = () => {
@@ -115,6 +124,7 @@ export function MoodboardCanvas({ moodboard, onChange, onSave }: MoodboardCanvas
             position: { x: Math.random() * 200 + 50, y: Math.random() * 200 + 50 },
             size: { width: 250, height: 250 },
             colors,
+            rotation, // Add rotation property
             zIndex: moodboard.items.length + 1,
           }
 
@@ -150,29 +160,81 @@ export function MoodboardCanvas({ moodboard, onChange, onSave }: MoodboardCanvas
     },
   })
 
-  return (
-    <div className="flex-1 flex flex-col">
-      <div className="flex-1 relative overflow-hidden rounded-lg border border-border/50 shadow-lg">
-        <div
-          {...getRootProps()}
-          className={`absolute inset-0 z-10 ${
-            isDragActive ? "bg-primary/10 border-2 border-dashed border-primary" : ""
-          }`}
-        >
-          {isDragActive && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-xl font-medium text-primary">Drop images here</p>
-            </div>
-          )}
-          <input {...getInputProps()} />
-        </div>
+  useEffect(() => {
+    // Setup global drag and drop listeners
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault()
+      setIsDragging(true)
+    }
 
-        <div
-          ref={canvasRef}
-          id="moodboard-canvas"
-          className="h-full w-full relative paper-texture moodboard-canvas"
-          style={{ backgroundColor: moodboard.background_color }}
-        >
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      setIsDragging(false)
+    }
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault()
+      setIsDragging(false)
+
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        onDrop(Array.from(e.dataTransfer.files))
+      }
+    }
+
+    // Add listeners to the document
+    document.addEventListener("dragover", handleDragOver)
+    document.addEventListener("dragleave", handleDragLeave)
+    document.addEventListener("drop", handleDrop)
+
+    return () => {
+      // Clean up
+      document.removeEventListener("dragover", handleDragOver)
+      document.removeEventListener("dragleave", handleDragLeave)
+      document.removeEventListener("drop", handleDrop)
+    }
+  }, [onDrop])
+
+  // Add this function inside the MoodboardCanvas component
+  const handleDuplicateItem = (item: ItemType) => {
+    const newItem = {
+      ...item,
+      id: uuidv4(),
+      position: {
+        x: item.position.x + 20,
+        y: item.position.y + 20,
+      },
+      zIndex: moodboard.items.length + 1,
+    }
+
+    onChange({
+      ...moodboard,
+      items: [...moodboard.items, newItem],
+    })
+
+    setSelectedItemId(newItem.id)
+  }
+
+  return (
+    <div className="flex-1 flex flex-col h-full">
+      <div className="flex-1 relative overflow-hidden rounded-lg border border-border/50 shadow-lg h-full">
+        {/* Only show the dropzone overlay when actively dragging files */}
+        {isDragActive && (
+          <div
+            {...getRootProps()}
+            className="absolute inset-0 z-20 bg-primary/10 border-2 border-dashed border-primary flex items-center justify-center"
+          >
+            <p className="text-xl font-medium text-primary">Drop images here</p>
+            <input {...getInputProps()} />
+          </div>
+        )}
+
+<div
+        ref={canvasRef}
+        id="moodboard-canvas"
+        className="h-full w-full relative paper-texture moodboard-canvas"
+        style={{ backgroundColor: moodboard.background_color }}
+        onClick={() => setSelectedItemId(null)}
+      >
           {moodboard.items.map((item) => (
             <motion.div
               key={item.id}
@@ -181,15 +243,18 @@ export function MoodboardCanvas({ moodboard, onChange, onSave }: MoodboardCanvas
               transition={{ duration: 0.3 }}
               className="absolute pin-effect pin-shadow"
               style={{
-                left: item.position.x,
-                top: item.position.y,
+                left: 0, // Set to 0 and let the Rnd component handle positioning
+                top: 0,  // Set to 0 and let the Rnd component handle positioning
                 zIndex: item.zIndex,
-                transform: `rotate(${Math.random() * 6 - 3}deg)`,
+                // Remove transform here - let the Rnd component handle rotation
               }}
             >
               {item.type === "image" ? (
                 <ImageItemComponent
-                  item={item as ImageItem}
+                  item={{
+                    ...(item as ImageItem),
+                    onDuplicate: handleDuplicateItem,
+                  }}
                   isSelected={selectedItemId === item.id}
                   onSelect={() => handleItemSelect(item.id)}
                   onDelete={() => handleItemDelete(item.id)}
@@ -197,7 +262,10 @@ export function MoodboardCanvas({ moodboard, onChange, onSave }: MoodboardCanvas
                 />
               ) : (
                 <TextItemComponent
-                  item={item as TextItem}
+                  item={{
+                    ...(item as TextItem),
+                    onDuplicate: handleDuplicateItem,
+                  }}
                   isSelected={selectedItemId === item.id}
                   onSelect={() => handleItemSelect(item.id)}
                   onDelete={() => handleItemDelete(item.id)}
@@ -210,31 +278,41 @@ export function MoodboardCanvas({ moodboard, onChange, onSave }: MoodboardCanvas
       </div>
 
       <div className="flex justify-between items-center mt-4">
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleAddText} className="flex items-center gap-1">
-            <Type className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Text</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-1"
-            {...getRootProps()}
-            disabled={isUploading}
-          >
-            {isUploading ? (
-              <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">Add Image</span>
-            <input {...getInputProps()} />
-          </Button>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={handleAddText} className="flex items-center gap-1">
+          <Type className="h-4 w-4" />
+          <span className="hidden sm:inline">Add Text</span>
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="flex items-center gap-1"
+          onClick={() => {
+            const fileInput = document.createElement("input")
+            fileInput.type = "file"
+            fileInput.multiple = true
+            fileInput.accept = "image/*"
+            fileInput.onchange = (e) => {
+              const files = (e.target as HTMLInputElement).files
+              if (files && files.length > 0) {
+                onDrop(Array.from(files))
+              }
+            }
+            fileInput.click()
+          }}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+               <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Add Image</span>
+            </Button>
+          </div>
+    
+          <ColorPalette moodboard={moodboard} onChange={onChange} />
         </div>
-
-        <ColorPalette moodboard={moodboard} onChange={onChange} />
       </div>
-    </div>
-  )
+    )
 }
-

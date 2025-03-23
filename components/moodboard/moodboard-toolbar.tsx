@@ -1,8 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { useSupabase } from "@/components/supabase-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
@@ -14,45 +12,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Save, Share, Download, Edit2 } from "lucide-react"
+import { Save, Share, Download, Edit2, Check, X, Link, Loader2 } from "lucide-react"
 import type { MoodboardType } from "@/types/moodboard"
 import { toPng } from "html-to-image"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface MoodboardToolbarProps {
   moodboard: MoodboardType | null
-  onSave: (moodboard: MoodboardType) => void
+  onSave: (moodboard: MoodboardType) => Promise<void>
+  isSaving: boolean
+  hasUnsavedChanges: boolean
 }
 
-export function MoodboardToolbar({ moodboard, onSave }: MoodboardToolbarProps) {
-  const { supabase } = useSupabase()
-  const router = useRouter()
+export function MoodboardToolbar({ 
+  moodboard, 
+  onSave, 
+  isSaving, 
+  hasUnsavedChanges 
+}: MoodboardToolbarProps) {
   const { toast } = useToast()
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [title, setTitle] = useState(moodboard?.title || "")
-  const [isSaving, setIsSaving] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
   const handleSave = async () => {
     if (!moodboard) return
-
-    setIsSaving(true)
-    try {
-      await onSave(moodboard)
-      toast({
-        title: "Moodboard saved",
-        description: "Your moodboard has been saved successfully.",
-      })
-    } catch (error) {
-      console.error("Error saving moodboard:", error)
-      toast({
-        variant: "destructive",
-        title: "Error saving moodboard",
-        description: "Please try again later.",
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    await onSave(moodboard)
   }
 
   const handleTitleChange = () => {
@@ -79,7 +65,6 @@ export function MoodboardToolbar({ moodboard, onSave }: MoodboardToolbarProps) {
         pixelRatio: 2,
       })
 
-      // Create a download link
       const link = document.createElement("a")
       link.download = `${moodboard.title.replace(/\s+/g, "-").toLowerCase()}.png`
       link.href = dataUrl
@@ -103,11 +88,13 @@ export function MoodboardToolbar({ moodboard, onSave }: MoodboardToolbarProps) {
 
   const handleShare = async () => {
     if (!moodboard) return
+    setIsShareDialogOpen(true)
+  }
 
-    // Generate share URL
+  const copyShareLink = async () => {
+    if (!moodboard) return
+
     const shareUrl = `${window.location.origin}/share/${moodboard.id}`
-
-    // Copy to clipboard
     await navigator.clipboard.writeText(shareUrl)
 
     toast({
@@ -119,14 +106,14 @@ export function MoodboardToolbar({ moodboard, onSave }: MoodboardToolbarProps) {
   if (!moodboard) return null
 
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-4 bg-background/30 backdrop-blur-sm p-2 rounded-lg border border-border/20">
       <div className="flex items-center">
         {isEditingTitle ? (
           <div className="flex items-center gap-2">
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-64"
+              className="w-64 h-9"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -137,8 +124,8 @@ export function MoodboardToolbar({ moodboard, onSave }: MoodboardToolbarProps) {
                 }
               }}
             />
-            <Button size="sm" onClick={handleTitleChange}>
-              Save
+            <Button size="sm" variant="ghost" onClick={handleTitleChange}>
+              <Check className="h-4 w-4" />
             </Button>
             <Button
               size="sm"
@@ -148,48 +135,88 @@ export function MoodboardToolbar({ moodboard, onSave }: MoodboardToolbarProps) {
                 setTitle(moodboard.title)
               }}
             >
-              Cancel
+              <X className="h-4 w-4" />
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-medium">{moodboard.title}</h2>
             <Button
-              size="icon"
+              size="sm"
               variant="ghost"
-              className="h-6 w-6"
+              className="h-9"
               onClick={() => {
                 setIsEditingTitle(true)
                 setTitle(moodboard.title)
               }}
             >
-              <Edit2 className="h-3 w-3" />
-              <span className="sr-only">Edit title</span>
+              <Edit2 className="h-4 w-4 mr-2" />
+              <span className="font-medium">{moodboard.title}</span>
             </Button>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={handleSave} disabled={isSaving}>
-          <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Saving..." : "Save"}
-        </Button>
-        <Button size="sm" variant="outline" onClick={handleShare}>
-          <Share className="mr-2 h-4 w-4" />
-          Share
-        </Button>
-        <Button size="sm" variant="outline" onClick={handleExport} disabled={isExporting}>
-          <Download className="mr-2 h-4 w-4" />
-          {isExporting ? "Exporting..." : "Export"}
-        </Button>
-      </div>
+      <TooltipProvider>
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleSave} 
+                disabled={!hasUnsavedChanges || isSaving}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Save moodboard</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="outline" onClick={handleShare}>
+                <Share className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Share</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Share moodboard</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleExport} 
+                disabled={isExporting}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">
+                  {isExporting ? "Exporting..." : "Export"}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Export as image</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
 
       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Share Moodboard</DialogTitle>
-            <DialogDescription>Share your moodboard with others using the link below.</DialogDescription>
+            <DialogDescription>
+              Share your moodboard with others using the link below.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex items-center space-x-2">
             <Input
@@ -197,15 +224,8 @@ export function MoodboardToolbar({ moodboard, onSave }: MoodboardToolbarProps) {
               readOnly
               onClick={(e) => e.currentTarget.select()}
             />
-            <Button
-              onClick={async () => {
-                await navigator.clipboard.writeText(`${window.location.origin}/share/${moodboard.id}`)
-                toast({
-                  title: "Link copied",
-                  description: "The share link has been copied to your clipboard.",
-                })
-              }}
-            >
+            <Button onClick={copyShareLink}>
+              <Link className="h-4 w-4 mr-2" />
               Copy
             </Button>
           </div>

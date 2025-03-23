@@ -1,90 +1,54 @@
-export type User = {
-  id: number;
-  name: string;
-  email: string;
-  isActive: boolean;
-};
+export interface Position {
+  x: number
+  y: number
+}
 
-export type Product = {
-  id: number;
-  name: string;
-  price: number;
-  inStock: boolean;
-};
+export interface Size {
+  width: number
+  height: number
+}
 
-export type Order = {
-  orderId: number;
-  userId: number;
-  productIds: number[];
-  orderDate: Date;
-  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
-};
+export interface TextStyle {
+  fontSize?: number
+  fontWeight?: "normal" | "bold"
+  color?: string
+  backgroundColor?: string
+  textAlign?: "left" | "center" | "right"
+}
 
-export type ApiResponse<T> = {
-  data: T;
-  error: string | null;
-  status: number;
-};
+export interface MoodboardItem {
+  id: string
+  type: "image" | "text"
+  content?: string
+  src?: string
+  position: Position
+  size: Size
+  zIndex: number
+  style?: TextStyle
+  rotation?: number
+}
 
-export type MoodboardItem = {
-  id: string;
-  type: 'image' | 'text';
-  content?: string;
-  src?: string;
-  position: {
-    x: number;
-    y: number;
-  };
-  size: {
-    width: number;
-    height: number;
-  };
-  zIndex: number;
-  style: {
-    fontSize?: number;
-    fontWeight?: 'normal' | 'bold';
-    color?: string;
-    backgroundColor?: string;
-    textAlign?: 'left' | 'center' | 'right';
-  };
-};
-
-export type Moodboard = {
-  id: string;
-  title: string;
-  background_color: string;
-  items: MoodboardItem[];
-};
+export interface Moodboard {
+  id: string
+  user_id: string
+  title: string
+  background_color: string
+  items: MoodboardItem[]
+  created_at: string
+  updated_at: string
+  is_saved?: boolean
+}
 
 // For Supabase typing, we need to define the Database interface
 export type Database = {
   public: {
     Tables: {
-      users: {
-        Row: User;
-        Insert: Omit<User, 'id'>;
-        Update: Partial<User>;
-      };
-      products: {
-        Row: Product;
-        Insert: Omit<Product, 'id'>;
-        Update: Partial<Product>;
-      };
-      orders: {
-        Row: Order;
-        Insert: Omit<Order, 'orderId'>;
-        Update: Partial<Order>;
-      };
       moodboards: {
-        Row: Moodboard;
-        Insert: Omit<Moodboard, 'id'>;
-        Update: Partial<Moodboard>;
-      };
-    };
-  };
-};
-
-export type UserResponse = ApiResponse<User>;
-export type ProductResponse = ApiResponse<Product>;
-export type OrderResponse = ApiResponse<Order>;
+        Row: Moodboard
+        Insert: Omit<Moodboard, "id" | "created_at" | "updated_at">
+        Update: Partial<Moodboard>
+      }
+    }
+  }
+}
 
