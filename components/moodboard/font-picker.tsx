@@ -2,14 +2,20 @@
 
 import type React from "react"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, X, Check, ChevronDown, AlertCircle } from "lucide-react"
+import { Search, X, Check, ChevronDown, AlertCircle, ArrowUpDown } from "lucide-react"
 import { getGoogleFonts, getFontUrl } from "@/lib/utils/fonts"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface FontPickerProps {
   value?: string
@@ -99,6 +105,17 @@ export function FontPicker({ value, onChange, expanded = false }: FontPickerProp
     })
   }, [filteredFonts, loadedFonts])
 
+  // Add effect to load the selected font when it changes
+  useEffect(() => {
+    if (value && !loadedFonts.has(value)) {
+      const link = document.createElement("link")
+      link.href = getFontUrl(value)
+      link.rel = "stylesheet"
+      document.head.appendChild(link)
+      setLoadedFonts((prev) => new Set(prev).add(value))
+    }
+  }, [value, loadedFonts])
+
   // Filter fonts based on search query
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -130,9 +147,22 @@ export function FontPicker({ value, onChange, expanded = false }: FontPickerProp
   if (!expanded) {
     return (
       <>
-        <Button variant="outline" className="w-full justify-between" onClick={() => setIsDialogOpen(true)}>
-          <span style={{ fontFamily: value || "inherit" }}>{value || "Select a font"}</span>
-          <ChevronDown className="h-4 w-4 opacity-50" />
+        <Button 
+          variant="outline" 
+          className="w-full justify-between" 
+          onClick={() => setIsDialogOpen(true)}
+        >
+          <span 
+            className="truncate flex items-center gap-2"
+            style={{ 
+              fontFamily: value || 'inherit',
+              fontWeight: 'normal'
+            }}
+          >
+            <span>Aa</span>
+            <span>{value || "Select a font"}</span>
+          </span>
+          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
         </Button>
 
         <FontPickerDialog
@@ -203,6 +233,8 @@ export function FontPicker({ value, onChange, expanded = false }: FontPickerProp
 }
 
 // Dialog version of the font picker
+type SortOption = 'popularity' | 'alphabetical'
+
 interface FontPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -228,6 +260,27 @@ function FontPickerDialog({
   loading,
   error,
 }: FontPickerDialogProps) {
+  const [sortBy, setSortBy] = useState<SortOption>('popularity')
+  const [tempSelectedFont, setTempSelectedFont] = useState<string | undefined>(selectedFont)
+
+  const getSortedFonts = useCallback(() => {
+    return [...fonts].sort((a, b) => {
+      if (sortBy === 'alphabetical') {
+        return a.family.localeCompare(b.family)
+      }
+      return 0
+    })
+  }, [fonts, sortBy])
+
+  const sortedFonts = getSortedFonts()
+
+  // Reset temp selection when dialog opens
+  useEffect(() => {
+    if (open) {
+      setTempSelectedFont(selectedFont)
+    }
+  }, [open, selectedFont])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -236,15 +289,51 @@ function FontPickerDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              ref={searchInputRef}
-              placeholder="Search fonts..."
-              className="pl-9"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                placeholder="Search fonts..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+              />
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-10 w-10">
+                  <ArrowUpDown className="h-4 w-4" />
+                  <span className="sr-only">Sort fonts</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={() => setSortBy('popularity')}
+                  className={sortBy === 'popularity' ? 'bg-muted' : ''}
+                >
+                  Sort by popularity
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setSortBy('alphabetical')}
+                  className={sortBy === 'alphabetical' ? 'bg-muted' : ''}
+                >
+                  Sort alphabetically
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Sorted by {sortBy === 'popularity' ? 'popularity' : 'alphabetical order'}
+            </p>
+            {tempSelectedFont && tempSelectedFont !== selectedFont && (
+              <p className="text-sm text-muted-foreground">
+                Selected: {tempSelectedFont}
+              </p>
+            )}
           </div>
 
           {loading ? (
@@ -259,27 +348,52 @@ function FontPickerDialog({
               <p className="text-xs text-muted-foreground mt-1">Using system fonts instead</p>
             </div>
           ) : (
-            <ScrollArea className="h-[50vh] rounded-md border">
+            <ScrollArea className="h-[40vh] rounded-md border">
               <div className="p-2 grid grid-cols-1 gap-1">
-                {fonts.length > 0 ? (
-                  fonts.map((font) => (
+                {sortedFonts.length > 0 ? (
+                  sortedFonts.map((font) => (
                     <Button
                       key={font.family}
-                      variant={selectedFont === font.family ? "secondary" : "ghost"}
+                      variant={tempSelectedFont === font.family ? "secondary" : "ghost"}
                       className="justify-between h-10"
                       style={{ fontFamily: font.family }}
-                      onClick={() => onSelectFont(font.family)}
+                      onClick={() => setTempSelectedFont(font.family)}
                     >
                       <span>{font.family}</span>
-                      {selectedFont === font.family && <Check className="h-4 w-4 ml-2" />}
+                      {tempSelectedFont === font.family && <Check className="h-4 w-4 ml-2" />}
                     </Button>
                   ))
                 ) : (
-                  <div className="p-8 text-center text-muted-foreground">No fonts match your search</div>
+                  <div className="p-8 text-center text-muted-foreground">
+                    No fonts match your search
+                  </div>
                 )}
               </div>
             </ScrollArea>
           )}
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTempSelectedFont(selectedFont)
+              onOpenChange(false)
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if (tempSelectedFont) {
+                onSelectFont(tempSelectedFont)
+                onOpenChange(false)
+              }
+            }}
+            disabled={!tempSelectedFont || tempSelectedFont === selectedFont}
+          >
+            Confirm Selection
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

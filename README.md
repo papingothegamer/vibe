@@ -20,6 +20,8 @@ A modern React/Next.js application for creating and sharing digital moodboards w
 - ✅ Undo/Redo functionality
 - ✅ Element rotation
 - ✅ Element layering (z-index control)
+- ✅ Advanced font selection with preview and confirmation
+- ✅ Font sorting by popularity and alphabetical order
 
 ## Current Issues to Fix
 
@@ -35,6 +37,8 @@ A modern React/Next.js application for creating and sharing digital moodboards w
    - [x] Fix text styling controls
    - [x] Add Google Fonts integration (repair \*)
    - [x] Fix moodboard title update functionality
+   - [x] Improve font selection UX with preview and confirmation
+   - [x] Add font sorting functionality
    - [ ] Implement proper delete confirmation
    - [ ] Add real-time updates for shared moodboards
    - [ ] Add moodboard templates
@@ -52,6 +56,8 @@ A modern React/Next.js application for creating and sharing digital moodboards w
 4. UI/UX Improvements
    - [x] Add font search and preview
    - [x] Improve text controls accessibility
+   - [x] Add font selection confirmation flow
+   - [x] Enhance font picker interface
    - [ ] Add loading states for all actions
    - [ ] Implement better error messages
    - [ ] Add keyboard shortcuts
@@ -59,6 +65,17 @@ A modern React/Next.js application for creating and sharing digital moodboards w
    - [ ] Add image filters and effects
    - [ ] Implement grid alignment
    - [ ] Add snap-to-grid functionality
+
+## Recent Updates
+
+### Font Management Improvements
+
+- Added confirmation flow for font selection
+- Implemented font preview in selection dialog
+- Added font sorting (popularity/alphabetical)
+- Enhanced font preview display in text controls
+- Improved font picker UI/UX with better feedback
+- Added temporary font selection before confirmation
 
 ## Technical Stack
 

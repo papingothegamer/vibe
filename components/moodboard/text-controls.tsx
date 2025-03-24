@@ -170,6 +170,16 @@ export function TextControls({ style, onChange }: TextControlsProps) {
     setIsTransparent(!isTransparent)
   }
 
+  const [confirmedFont, setConfirmedFont] = useState(style.fontFamily)
+
+  const handleFontChange = (font: string) => {
+    setConfirmedFont(font)
+    onChange({
+      ...style,
+      fontFamily: font,
+    })
+  }
+
   return (
     <div className="w-full transition-all duration-300 ease-in-out">
       <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -216,8 +226,25 @@ export function TextControls({ style, onChange }: TextControlsProps) {
               </div>
 
               <div className="space-y-2 mt-4">
-                <Label className="text-sm font-medium">Font Family</Label>
-                <FontPicker value={style.fontFamily} onChange={(font) => onChange({ ...style, fontFamily: font })} />
+  <Label className="text-sm font-medium">Font Family</Label>
+  <FontPicker value={style.fontFamily} onChange={handleFontChange} />
+  {confirmedFont ? (
+    <div className="mt-2 p-2 rounded-md bg-muted/10">
+      <p className="text-sm text-muted-foreground">
+        <span className="opacity-70">Selected font:</span>{" "}
+        <span 
+          className="text-base mt-1" 
+          style={{ fontFamily: confirmedFont }}
+        >
+          {confirmedFont}
+        </span>
+      </p>
+    </div>
+  ) : (
+    <p className="text-sm text-muted-foreground mt-1.5">
+      No font selected
+    </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-4">
