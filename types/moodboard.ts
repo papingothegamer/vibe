@@ -9,11 +9,12 @@ export interface Size {
 }
 
 export interface TextStyle {
-  fontSize: number
-  fontWeight: string
-  color: string
-  backgroundColor: string
+  fontSize?: number
+  fontWeight?: "normal" | "bold"
+  color?: string
+  backgroundColor?: string
   textAlign?: "left" | "center" | "right"
+  fontFamily?: string
 }
 
 export interface BaseItem {

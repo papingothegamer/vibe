@@ -5,14 +5,18 @@ import { Logo } from "@/components/logo"
 import { WelcomeSection } from "@/components/home/welcome-section"
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function Home() {
   try {
     const supabase = await createServerSupabaseClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
     if (session) {
-      redirect("/dashboard")
+      return redirect("/dashboard")
     }
 
     return (
@@ -26,7 +30,15 @@ export default async function Home() {
     )
   } catch (error) {
     console.error("Auth error:", error)
-    return null
+    return (
+      <main className="min-h-screen flex flex-col">
+        <header className="container flex items-center justify-between py-4 md:py-6">
+          <Logo />
+          <ThemeToggle />
+        </header>
+        <WelcomeSection />
+      </main>
+    )
   }
 }
 

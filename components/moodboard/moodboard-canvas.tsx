@@ -16,10 +16,17 @@ import { v4 as uuidv4 } from "uuid"
 
 interface MoodboardCanvasProps {
   moodboard: MoodboardType
-  onChange: (moodboard: MoodboardType) => void
+  onChange: (updatedMoodboard: MoodboardType) => void
+  onTextSelect: (item: TextItem | null) => void
+  selectedTextItem: TextItem | null
 }
 
-export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
+export function MoodboardCanvas({ 
+  moodboard, 
+  onChange, 
+  onTextSelect,
+  selectedTextItem 
+}: MoodboardCanvasProps) {
   const { supabase, user } = useSupabase()
   const { toast } = useToast()
   const [isDragging, setIsDragging] = useState(false)
@@ -27,8 +34,13 @@ export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isUploading, setIsUploading] = useState(false)
 
-  const handleItemSelect = (id: string) => {
-    setSelectedItemId(id === selectedItemId ? null : id)
+  const handleItemSelect = (item: ItemType) => {
+    setSelectedItemId(item.id === selectedItemId ? null : item.id)
+    if (item.type === "text") {
+      onTextSelect(item as TextItem)
+    } else {
+      onTextSelect(null)
+    }
   }
 
   const handleItemDelete = (id: string) => {
@@ -214,9 +226,16 @@ export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
     setSelectedItemId(newItem.id)
   }
 
+  const handleCanvasClick = () => {
+    onTextSelect(null)
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="flex-1 relative overflow-hidden rounded-lg border border-border/50 shadow-lg h-full">
+      <div 
+        className="relative w-full h-full rounded-lg border border-border/50 overflow-hidden"
+        onClick={handleCanvasClick}
+      >
         {/* Only show the dropzone overlay when actively dragging files */}
         {isDragActive && (
           <div
@@ -228,13 +247,13 @@ export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
           </div>
         )}
 
-<div
-        ref={canvasRef}
-        id="moodboard-canvas"
-        className="h-full w-full relative paper-texture moodboard-canvas"
-        style={{ backgroundColor: moodboard.background_color }}
-        onClick={() => setSelectedItemId(null)}
-      >
+        <div
+          ref={canvasRef}
+          id="moodboard-canvas"
+          className="h-full w-full relative paper-texture moodboard-canvas"
+          style={{ backgroundColor: moodboard.background_color }}
+          onClick={() => setSelectedItemId(null)}
+        >
           {moodboard.items.map((item) => (
             <motion.div
               key={item.id}
@@ -256,7 +275,7 @@ export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
                     onDuplicate: handleDuplicateItem,
                   }}
                   isSelected={selectedItemId === item.id}
-                  onSelect={() => handleItemSelect(item.id)}
+                  onSelect={() => handleItemSelect(item)}
                   onDelete={() => handleItemDelete(item.id)}
                   onChange={(updatedItem) => handleItemUpdate(updatedItem)}
                 />
@@ -267,7 +286,7 @@ export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
                     onDuplicate: handleDuplicateItem,
                   }}
                   isSelected={selectedItemId === item.id}
-                  onSelect={() => handleItemSelect(item.id)}
+                  onSelect={() => handleItemSelect(item)}
                   onDelete={() => handleItemDelete(item.id)}
                   onChange={(updatedItem) => handleItemUpdate(updatedItem)}
                 />
@@ -278,41 +297,41 @@ export function MoodboardCanvas({ moodboard, onChange }: MoodboardCanvasProps) {
       </div>
 
       <div className="flex justify-between items-center mt-4">
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={handleAddText} className="flex items-center gap-1">
-          <Type className="h-4 w-4" />
-          <span className="hidden sm:inline">Add Text</span>
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="flex items-center gap-1"
-          onClick={() => {
-            const fileInput = document.createElement("input")
-            fileInput.type = "file"
-            fileInput.multiple = true
-            fileInput.accept = "image/*"
-            fileInput.onchange = (e) => {
-              const files = (e.target as HTMLInputElement).files
-              if (files && files.length > 0) {
-                onDrop(Array.from(files))
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleAddText} className="flex items-center gap-1">
+            <Type className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Text</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-1"
+            onClick={() => {
+              const fileInput = document.createElement("input")
+              fileInput.type = "file"
+              fileInput.multiple = true
+              fileInput.accept = "image/*"
+              fileInput.onchange = (e) => {
+                const files = (e.target as HTMLInputElement).files
+                if (files && files.length > 0) {
+                  onDrop(Array.from(files))
+                }
               }
-            }
-            fileInput.click()
-          }}
-          disabled={isUploading}
-        >
-          {isUploading ? (
-               <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              <span className="hidden sm:inline">Add Image</span>
-            </Button>
-          </div>
-    
-          <ColorPalette moodboard={moodboard} onChange={onChange} />
+              fileInput.click()
+            }}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Add Image</span>
+          </Button>
         </div>
+
+        <ColorPalette moodboard={moodboard} onChange={onChange} />
       </div>
-    )
+    </div>
+  )
 }

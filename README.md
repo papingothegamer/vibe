@@ -2,13 +2,15 @@
 
 A modern React/Next.js application for creating and sharing digital moodboards with real-time collaboration features.
 
-## Features Implemented
+## Features Implemented (in progress)
 
 - ✅ User authentication with Supabase
 - ✅ Moodboard creation and editing
 - ✅ Real-time saving functionality
 - ✅ Image upload and management
 - ✅ Text element creation and styling
+- ✅ Google Fonts integration for text elements
+- ✅ Font search and preview functionality
 - ✅ Drag and drop interface with precise positioning
 - ✅ Background color customization
 - ✅ Share functionality with unique URLs
@@ -23,14 +25,16 @@ A modern React/Next.js application for creating and sharing digital moodboards w
 
 1. Authentication Flow
 
-   - [ ] Fix redirection after sign-in
+   - [x] Fix redirection after sign-in
    - [ ] Improve error handling for auth state changes
    - [ ] Add social authentication providers
    - [ ] Implement password reset flow
 
 2. Moodboard Management
 
-   - [ ] Fix moodboard title update functionality
+   - [x] Fix text styling controls
+   - [x] Add Google Fonts integration (repair \*)
+   - [x] Fix moodboard title update functionality
    - [ ] Implement proper delete confirmation
    - [ ] Add real-time updates for shared moodboards
    - [ ] Add moodboard templates
@@ -46,6 +50,8 @@ A modern React/Next.js application for creating and sharing digital moodboards w
    - [ ] Add version history
 
 4. UI/UX Improvements
+   - [x] Add font search and preview
+   - [x] Improve text controls accessibility
    - [ ] Add loading states for all actions
    - [ ] Implement better error messages
    - [ ] Add keyboard shortcuts
@@ -68,6 +74,7 @@ A modern React/Next.js application for creating and sharing digital moodboards w
 - Framer Motion
 - react-rnd (Resizable & Draggable)
 - html-to-image
+- Google Fonts API
 
 ## Environment Setup
 
@@ -76,6 +83,7 @@ Required environment variables:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_GOOGLE_FONTS_API_KEY=your_google_fonts_api_key
 ```
 
 ## Development

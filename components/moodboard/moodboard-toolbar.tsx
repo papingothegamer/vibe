@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
@@ -12,29 +12,56 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Save, Share, Download, Edit2, Check, X, Link, Loader2 } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  Save,
+  Share,
+  Download,
+  Edit2,
+  Check,
+  X,
+  Link,
+  Loader2,
+  Type,
+  MoreHorizontal,
+  Copy,
+  Trash,
+  Settings,
+} from "lucide-react"
 import type { MoodboardType } from "@/types/moodboard"
+import type { TextItem, TextStyle } from "@/types/moodboard"
 import { toPng } from "html-to-image"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { TextControls } from "./text-controls"
+import { Separator } from "@/components/ui/separator"
 
 interface MoodboardToolbarProps {
   moodboard: MoodboardType | null
   onSave: (moodboard: MoodboardType) => Promise<void>
   isSaving: boolean
   hasUnsavedChanges: boolean
+  selectedTextItem: TextItem | null
+  onTextStyleChange?: (style: TextStyle) => void
+  onDeleteMoodboard?: () => void
 }
 
-export function MoodboardToolbar({ 
-  moodboard, 
-  onSave, 
-  isSaving, 
-  hasUnsavedChanges 
+export function MoodboardToolbar({
+  moodboard,
+  onSave,
+  isSaving,
+  hasUnsavedChanges,
+  selectedTextItem,
+  onTextStyleChange,
+  onDeleteMoodboard,
 }: MoodboardToolbarProps) {
   const { toast } = useToast()
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [title, setTitle] = useState(moodboard?.title || "")
   const [isExporting, setIsExporting] = useState(false)
+  const [isTextControlsOpen, setIsTextControlsOpen] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   const handleSave = async () => {
     if (!moodboard) return
@@ -43,20 +70,20 @@ export function MoodboardToolbar({
 
   const handleTitleChange = async () => {
     if (!moodboard) return
-    
+
     try {
       const updatedMoodboard = {
         ...moodboard,
-        title: title.trim(), // Ensure title is trimmed
+        title: title.trim() || "Untitled Moodboard", // Fallback to "Untitled" if empty
       }
-      
+
       await onSave(updatedMoodboard)
       setIsEditingTitle(false)
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error updating title",
-        description: "Failed to update moodboard title. Please try again."
+        description: "Failed to update moodboard title. Please try again.",
       })
     }
   }
@@ -75,7 +102,7 @@ export function MoodboardToolbar({
       })
 
       const link = document.createElement("a")
-      link.download = `${moodboard.title.replace(/\s+/g, "-").toLowerCase()}.png`
+      link.download = `${moodboard.title.replace(/\s+/g, "-").toLowerCase() || "moodboard"}.png`
       link.href = dataUrl
       link.click()
 
@@ -115,14 +142,15 @@ export function MoodboardToolbar({
   if (!moodboard) return null
 
   return (
-    <div className="flex items-center justify-between mb-4 bg-background/30 backdrop-blur-sm p-2 rounded-lg border border-border/20">
+    <div className="flex items-center justify-between mb-4 bg-background/70 backdrop-blur-md p-3 rounded-lg border border-border/30 shadow-sm">
       <div className="flex items-center">
         {isEditingTitle ? (
           <div className="flex items-center gap-2">
             <Input
+              ref={titleInputRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-64 h-9"
+              className="w-64 h-9 bg-background"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -152,48 +180,89 @@ export function MoodboardToolbar({
             <Button
               size="sm"
               variant="ghost"
-              className="h-9"
+              className="h-9 font-medium"
               onClick={() => {
                 setIsEditingTitle(true)
                 setTitle(moodboard.title)
+                // Focus the input after a short delay to ensure it's rendered
+                setTimeout(() => titleInputRef.current?.focus(), 10)
               }}
             >
-              <Edit2 className="h-4 w-4 mr-2" />
-              <span className="font-medium">{moodboard.title}</span>
+              <Edit2 className="h-4 w-4 mr-2 text-muted-foreground" />
+              <span className="truncate max-w-[200px]">{moodboard.title || "Untitled Moodboard"}</span>
             </Button>
+
+            {hasUnsavedChanges && (
+              <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" title="Unsaved changes" />
+            )}
           </div>
         )}
       </div>
 
       <TooltipProvider>
         <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleSave}
+                  disabled={!hasUnsavedChanges || isSaving}
+                  variant={hasUnsavedChanges ? "default" : "outline"}
+                  size="sm"
+                  className="gap-2"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      <span>Save</span>
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Save moodboard</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" className="mx-2 h-6" />
+          </div>
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                onClick={handleSave} 
-                disabled={!hasUnsavedChanges || isSaving}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
+              <Popover open={isTextControlsOpen} onOpenChange={setIsTextControlsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={selectedTextItem ? "secondary" : "outline"}
+                    disabled={!selectedTextItem}
+                    className="gap-2"
+                  >
+                    <Type className="h-4 w-4" />
+                    <span className="hidden sm:inline">Text</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4" align="end">
+                  {selectedTextItem ? (
+                    <TextControls
+                      style={selectedTextItem.style}
+                      onChange={(newStyle) => onTextStyleChange?.(newStyle)}
+                    />
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground">Select a text element to edit its style</div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </TooltipTrigger>
-            <TooltipContent>Save moodboard</TooltipContent>
+            <TooltipContent>{selectedTextItem ? "Edit text style" : "Select text to edit"}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="sm" variant="outline" onClick={handleShare}>
-                <Share className="h-4 w-4 mr-2" />
+              <Button size="sm" variant="outline" onClick={handleShare} className="gap-2">
+                <Share className="h-4 w-4" />
                 <span className="hidden sm:inline">Share</span>
               </Button>
             </TooltipTrigger>
@@ -202,30 +271,82 @@ export function MoodboardToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={handleExport} 
-                disabled={isExporting}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">
-                  {isExporting ? "Exporting..." : "Export"}
-                </span>
+              <Button size="sm" variant="outline" onClick={handleExport} disabled={isExporting} className="gap-2">
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">{isExporting ? "Exporting..." : "Export"}</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Export as image</TooltipContent>
           </Tooltip>
+
+          {/* Mobile save button */}
+          <div className="md:hidden">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant={hasUnsavedChanges ? "default" : "outline"}
+                  onClick={handleSave}
+                  disabled={!hasUnsavedChanges || isSaving}
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Save moodboard</TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* More options menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">More options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  const updatedMoodboard = {
+                    ...moodboard,
+                    title: `Copy of ${moodboard.title}`,
+                    id: `copy-${moodboard.id}`, // This would be handled properly on the backend
+                  }
+                  // This would need to be implemented in the parent component
+                  toast({
+                    title: "Feature coming soon",
+                    description: "Duplicate functionality will be available soon.",
+                  })
+                }}
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                <span>Duplicate</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  toast({
+                    title: "Feature coming soon",
+                    description: "Settings functionality will be available soon.",
+                  })
+                }}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDeleteMoodboard}>
+                <Trash className="mr-2 h-4 w-4" />
+                <span>Delete</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </TooltipProvider>
 
       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Share Moodboard</DialogTitle>
-            <DialogDescription>
-              Share your moodboard with others using the link below.
-            </DialogDescription>
+            <DialogDescription>Share your moodboard with others using the link below.</DialogDescription>
           </DialogHeader>
           <div className="flex items-center space-x-2">
             <Input

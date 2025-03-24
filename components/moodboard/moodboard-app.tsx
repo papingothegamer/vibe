@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { LogOut, Menu, X, User, ChevronDown, Save, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { MoodboardType } from "@/types/moodboard"
+import type { TextItem, TextStyle } from "@/types/moodboard"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,7 @@ export function MoodboardApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [selectedTextItem, setSelectedTextItem] = useState<TextItem | null>(null)
   const { toast } = useToast()
 
   // Load user's moodboards
@@ -213,10 +215,32 @@ export function MoodboardApp() {
     }
   }
 
+  const handleTextStyleChange = (newStyle: TextStyle) => {
+    if (!selectedTextItem || !currentMoodboard) return
+
+    const updatedItems = currentMoodboard.items.map(item => 
+      item.id === selectedTextItem.id 
+        ? { ...item, style: newStyle } 
+        : item
+    )
+
+    const updatedMoodboard = {
+      ...currentMoodboard,
+      items: updatedItems
+    }
+
+    setCurrentMoodboard(updatedMoodboard)
+    setHasUnsavedChanges(true)
+  }
 
   const handleMoodboardChange = (updatedMoodboard: MoodboardType) => {
     setCurrentMoodboard(updatedMoodboard)
     setHasUnsavedChanges(true)
+    setSelectedTextItem(null)
+  }
+
+  const handleTextSelect = (item: TextItem | null) => {
+    setSelectedTextItem(item)
   }
 
   const deleteMoodboard = async (id: string) => {
@@ -348,13 +372,17 @@ export function MoodboardApp() {
         onSave={saveMoodboard} 
         isSaving={isSaving}
         hasUnsavedChanges={hasUnsavedChanges}
+        selectedTextItem={selectedTextItem}
+        onTextStyleChange={handleTextStyleChange}
       />
 
-<div className="flex-1 moodboard-canvas-container">
+      <div className="flex-1 moodboard-canvas-container">
         {currentMoodboard && (
           <MoodboardCanvas
             moodboard={currentMoodboard}
             onChange={handleMoodboardChange}
+            onTextSelect={handleTextSelect}
+            selectedTextItem={selectedTextItem}
           />
         )}
       </div>
