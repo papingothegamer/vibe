@@ -48,6 +48,26 @@ export type Database = {
         Insert: Omit<Moodboard, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<Moodboard, 'id' | 'created_at' | 'user_id'>>
       }
+      profiles: {
+        Row: {
+          id: string
+          full_name: string | null
+          avatar_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          full_name?: string | null
+          avatar_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          updated_at?: string | null
+        }
+      }
     }
   }
 }

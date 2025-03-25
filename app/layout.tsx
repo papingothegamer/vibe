@@ -6,6 +6,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { SupabaseProvider } from "@/components/supabase-provider"
 import { Toaster } from "@/components/ui/toaster"
+import { Navbar } from "@/components/layout/navbar"
+import { Footer } from "@/components/layout/footer" // Add this import
 
 // Load Inter from Google Fonts
 const inter = Inter({
@@ -51,11 +53,15 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
       <body className={`${inter.variable} ${clashDisplay.variable} font-sans`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <SupabaseProvider>
-            {children}
-            <Toaster />
-          </SupabaseProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <SupabaseProvider>
+              <main className="flex-1">{children}</main>
+              <Toaster />
+            </SupabaseProvider>
+            <Footer />
+          </div>
         </ThemeProvider>
       </body>
     </html>

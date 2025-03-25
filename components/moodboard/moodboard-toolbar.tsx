@@ -1,17 +1,12 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -35,6 +30,9 @@ import { toPng } from "html-to-image"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { TextControls } from "./text-controls"
 import { Separator } from "@/components/ui/separator"
+import { jsPDF as JsPDF } from "jspdf"
+import html2canvas from "html2canvas"
+import type { Options as Html2CanvasOptions } from 'html2canvas'
 
 interface MoodboardToolbarProps {
   moodboard: MoodboardType | null
@@ -88,7 +86,7 @@ export function MoodboardToolbar({
     }
   }
 
-  const handleExport = async () => {
+  const handleExport = async (format: "png" | "pdf") => {
     if (!moodboard) return
 
     setIsExporting(true)
@@ -96,20 +94,55 @@ export function MoodboardToolbar({
       const canvas = document.getElementById("moodboard-canvas")
       if (!canvas) throw new Error("Canvas not found")
 
-      const dataUrl = await toPng(canvas, {
-        quality: 0.95,
-        pixelRatio: 2,
-      })
+      if (format === "png") {
+        // Export as PNG (high resolution)
+        const dataUrl = await toPng(canvas, {
+          quality: 0.95,
+          pixelRatio: 3, // Higher resolution
+        })
 
-      const link = document.createElement("a")
-      link.download = `${moodboard.title.replace(/\s+/g, "-").toLowerCase() || "moodboard"}.png`
-      link.href = dataUrl
-      link.click()
+        const link = document.createElement("a")
+        link.download = `${moodboard.title.replace(/\s+/g, "-").toLowerCase() || "moodboard"}.png`
+        link.href = dataUrl
+        link.click()
 
-      toast({
-        title: "Export successful",
-        description: "Your moodboard has been exported as a PNG image.",
-      })
+        toast({
+          title: "Export successful",
+          description: "Your moodboard has been exported as a high-resolution PNG image.",
+        })
+      } else {
+        const options: Html2CanvasOptions = {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: canvas.scrollWidth,
+          windowHeight: canvas.scrollHeight,
+          backgroundColor: null,
+          x: 0,
+          y: 0,
+          width: canvas.scrollWidth,
+          height: canvas.scrollHeight
+        }
+
+        const renderedCanvas = await html2canvas(canvas, options)
+
+        const imgData = renderedCanvas.toDataURL("image/jpeg", 1.0)
+        const pdf = new JsPDF({
+          orientation: "landscape",
+          unit: "px",
+          format: [renderedCanvas.width, renderedCanvas.height],
+        })
+
+        pdf.addImage(imgData, "JPEG", 0, 0, renderedCanvas.width, renderedCanvas.height)
+        pdf.save(`${moodboard.title.replace(/\s+/g, "-").toLowerCase() || "moodboard"}.pdf`)
+
+        toast({
+          title: "Export successful",
+          description: "Your moodboard has been exported as a PDF document.",
+        })
+      }
     } catch (error) {
       console.error("Error exporting moodboard:", error)
       toast({
@@ -271,12 +304,41 @@ export function MoodboardToolbar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="sm" variant="outline" onClick={handleExport} disabled={isExporting} className="gap-2">
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">{isExporting ? "Exporting..." : "Export"}</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isExporting}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {isExporting ? "Exporting..." : "Export"}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onClick={() => handleExport("png")}
+                    disabled={isExporting}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>High-Res PNG</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleExport("pdf")}
+                    disabled={isExporting}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>PDF Document</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TooltipTrigger>
-            <TooltipContent>Export as image</TooltipContent>
+            <TooltipContent>Export moodboard</TooltipContent>
           </Tooltip>
 
           {/* Mobile save button */}

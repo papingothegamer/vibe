@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Trash2, Edit, Check, X, LayoutGrid, Clock } from "lucide-react"
 import type { MoodboardType } from "@/types/moodboard"
 import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 interface MoodboardSidebarItemProps {
   moodboard: MoodboardType
@@ -22,6 +23,12 @@ interface MoodboardSidebarItemProps {
 export function MoodboardSidebarItem({ moodboard, isActive, onSelect, onDelete, onEdit }: MoodboardSidebarItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(moodboard.title)
+
+  // Add effect to sync local title state with moodboard prop
+  useEffect(() => {
+    setEditTitle(moodboard.title)
+  }, [moodboard.title])
+
   const isSaved = moodboard.is_saved !== false
 
   const handleEditClick = (e: React.MouseEvent) => {
@@ -32,8 +39,10 @@ export function MoodboardSidebarItem({ moodboard, isActive, onSelect, onDelete, 
 
   const handleEditSave = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onEdit(moodboard, editTitle)
-    setIsEditing(false)
+    if (editTitle.trim() !== "") {
+      onEdit(moodboard, editTitle.trim())
+      setIsEditing(false)
+    }
   }
 
   const handleEditCancel = (e: React.MouseEvent) => {
@@ -50,11 +59,18 @@ export function MoodboardSidebarItem({ moodboard, isActive, onSelect, onDelete, 
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.2 }}
-      className={`group relative rounded-md p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
-        isActive ? "bg-muted" : ""
-      }`}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ 
+        duration: 0.2,
+        ease: "easeInOut"
+      }}
+      className={cn(
+        "group relative rounded-md p-3 cursor-pointer",
+        "hover:bg-muted/50 transition-all duration-200",
+        "ring-offset-background",
+        isActive && "bg-muted/50 ring-2 ring-primary ring-offset-2",
+        !isActive && "hover:ring-1 hover:ring-primary/20 hover:ring-offset-1"
+      )}
       onClick={() => onSelect(moodboard)}
     >
       {isEditing ? (

@@ -22,6 +22,11 @@ A modern React/Next.js application for creating and sharing digital moodboards w
 - ✅ Element layering (z-index control)
 - ✅ Advanced font selection with preview and confirmation
 - ✅ Font sorting by popularity and alphabetical order
+- ✅ Export to PNG and PDF formats
+- ✅ Expanded canvas view for detailed editing
+- ✅ Improved drag and drop functionality
+- ✅ Enhanced toolbar controls
+- ✅ Minimalist footer with social links
 
 ## Current Issues to Fix
 
@@ -35,12 +40,18 @@ A modern React/Next.js application for creating and sharing digital moodboards w
 2. Moodboard Management
 
    - [x] Fix text styling controls
-   - [x] Add Google Fonts integration (repair \*)
+   - [x] Add Google Fonts integration   
    - [x] Fix moodboard title update functionality
    - [x] Improve font selection UX with preview and confirmation
    - [x] Add font sorting functionality
+   - [x] Add PDF export functionality
+   - [x] Improve canvas expand/minimize functionality
+   - [x] Add export format selection dropdown
+   - [ ] Fix text/image element positioning
+   - [ ] Fix font selection and update states
    - [ ] Implement proper delete confirmation
    - [ ] Add real-time updates for shared moodboards
+   - [ ] Add shareable link generation for moodboards
    - [ ] Add moodboard templates
    - [ ] Implement moodboard duplication
    - [ ] Add collaborative editing features
@@ -58,6 +69,10 @@ A modern React/Next.js application for creating and sharing digital moodboards w
    - [x] Improve text controls accessibility
    - [x] Add font selection confirmation flow
    - [x] Enhance font picker interface
+   - [x] Add expanded canvas view for detailed editing
+   - [x] Implement export format selection
+   - [x] Add minimalist footer
+   - [ ] Fix canvas drag issues
    - [ ] Add loading states for all actions
    - [ ] Implement better error messages
    - [ ] Add keyboard shortcuts
@@ -76,6 +91,21 @@ A modern React/Next.js application for creating and sharing digital moodboards w
 - Enhanced font preview display in text controls
 - Improved font picker UI/UX with better feedback
 - Added temporary font selection before confirmation
+
+### Canvas and Export Improvements
+
+- Added PDF export functionality
+- Implemented expanded canvas view for detailed editing
+- Added export format selection dropdown (PNG/PDF)
+- Improved canvas drag and drop behavior
+- Enhanced toolbar controls and organization
+
+### UI Enhancements
+
+- Added minimalist footer with social links
+- Improved canvas expand/minimize functionality
+- Enhanced toolbar layout and controls
+- Added format selection for exports
 
 ## Technical Stack
 

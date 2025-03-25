@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AnimatePresence } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,7 @@ import { FolderPlus, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import type { MoodboardType } from "@/types/moodboard"
 import { MoodboardSidebarItem } from "./moodboard-sidebar-item"
+import { cn } from "@/lib/utils"
 
 interface MoodboardSidebarProps {
   moodboards: MoodboardType[]
@@ -81,8 +82,12 @@ export function MoodboardSidebar({
       </div>
 
       <ScrollArea className="flex-1 pr-3">
-        <div className="grid gap-3">
-          <AnimatePresence>
+        <AnimatePresence mode="popLayout">
+          <motion.div 
+            className="grid gap-3"
+            layout
+            layoutRoot
+          >
             {filteredMoodboards.map((moodboard) => (
               <MoodboardSidebarItem
                 key={moodboard.id}
@@ -93,23 +98,28 @@ export function MoodboardSidebar({
                 onEdit={handleEditMoodboard}
               />
             ))}
-          </AnimatePresence>
 
-          {filteredMoodboards.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              {searchQuery ? (
-                <p>No moodboards match your search</p>
-              ) : (
-                <>
-                  <p>No moodboards yet</p>
-                  <Button variant="link" onClick={onCreateMoodboard}>
-                    Create your first moodboard
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+            {filteredMoodboards.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center py-8 text-muted-foreground"
+              >
+                {searchQuery ? (
+                  <p>No moodboards match your search</p>
+                ) : (
+                  <>
+                    <p>No moodboards yet</p>
+                    <Button variant="link" onClick={onCreateMoodboard}>
+                      Create your first moodboard
+                    </Button>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </ScrollArea>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

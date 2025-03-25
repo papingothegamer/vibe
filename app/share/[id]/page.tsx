@@ -6,6 +6,15 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import type { Moodboard, MoodboardItem } from "../../../types/moodboard"
 
+// Add default styles
+const defaultStyles = {
+  backgroundColor: "#FFEB3B",
+  fontSize: 16,
+  fontWeight: "normal" as const,
+  color: "#000000",
+  textAlign: "left" as const
+}
+
 export default async function SharePage({ params }: { params: { id: string } }) {
   const supabase = await createServerSupabaseClient()
 
@@ -64,14 +73,15 @@ export default async function SharePage({ params }: { params: { id: string } }) 
                 <div
                   className="w-full h-full p-3 shadow-md"
                   style={{
-                    backgroundColor:
-                      item.style.backgroundColor === "transparent" ? "#FFEB3B" : item.style.backgroundColor,
+                    backgroundColor: item.style?.backgroundColor === "transparent" 
+                      ? defaultStyles.backgroundColor 
+                      : item.style?.backgroundColor || defaultStyles.backgroundColor,
                     backgroundImage: "linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px)",
                     backgroundSize: "20px 20px",
-                    fontSize: `${item.style.fontSize}px`,
-                    fontWeight: item.style.fontWeight,
-                    color: item.style.color,
-                    textAlign: item.style.textAlign || "left",
+                    fontSize: `${item.style?.fontSize || defaultStyles.fontSize}px`,
+                    fontWeight: item.style?.fontWeight || defaultStyles.fontWeight,
+                    color: item.style?.color || defaultStyles.color,
+                    textAlign: item.style?.textAlign || defaultStyles.textAlign,
                   }}
                 >
                   {item.content}

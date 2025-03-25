@@ -10,29 +10,82 @@ import type { MoodboardType, ImageItem, TextItem, ItemType } from "@/types/moodb
 import { ImageItemComponent } from "@/components/moodboard/image-item"
 import { TextItemComponent } from "@/components/moodboard/text-item"
 import { ColorPalette } from "@/components/moodboard/color-palette"
-import { Type, Upload } from "lucide-react"
+import { Type, Upload, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { v4 as uuidv4 } from "uuid"
+import { useCanvas } from "@/hooks/use-canvas"
+import { CanvasExpand } from "@/components/moodboard/canvas-expand"
 
 interface MoodboardCanvasProps {
   moodboard: MoodboardType
   onChange: (updatedMoodboard: MoodboardType) => void
   onTextSelect: (item: TextItem | null) => void
   selectedTextItem: TextItem | null
+  isExpanded?: boolean
+  onExpandChange?: (open: boolean) => void
+  hideExpandButton?: boolean // Add this prop
 }
 
 export function MoodboardCanvas({ 
   moodboard, 
   onChange, 
   onTextSelect,
-  selectedTextItem 
+  selectedTextItem,
+  isExpanded = false,
+  onExpandChange,
+  hideExpandButton = false // Default to showing the button
 }: MoodboardCanvasProps) {
   const { supabase, user } = useSupabase()
   const { toast } = useToast()
   const [isDragging, setIsDragging] = useState(false)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
-  const canvasRef = useRef<HTMLDivElement>(null)
   const [isUploading, setIsUploading] = useState(false)
+  
+  // Add local state for managing expansion
+  const [isLocalExpanded, setIsLocalExpanded] = useState(false)
+
+  // Keep only one canvas ref
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Initialize canvas context
+  useEffect(() => {
+    if (!canvasRef.current) return
+    const ctx = canvasRef.current.getContext('2d')
+    if (!ctx) return
+
+    // Set canvas size
+    const resizeCanvas = () => {
+      const canvas = canvasRef.current
+      const container = containerRef.current
+      if (!canvas || !container) return
+      
+      canvas.width = container.offsetWidth
+      canvas.height = container.offsetHeight
+      
+      // Redraw canvas contents here if needed
+      ctx.fillStyle = moodboard.background_color
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
+
+    return () => window.removeEventListener('resize', resizeCanvas)
+  }, [moodboard.background_color])
+
+  // Handle drag events
+  const handleDragStart = useCallback((e: React.DragEvent, item: ItemType) => {
+    e.dataTransfer.setData('text/plain', item.id)
+  }, [])
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    if (!canvasRef.current) return
+    const rect = canvasRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    // Update item position...
+  }, [])
 
   const handleItemSelect = (item: ItemType) => {
     setSelectedItemId(item.id === selectedItemId ? null : item.id)
@@ -230,13 +283,46 @@ export function MoodboardCanvas({
     onTextSelect(null)
   }
 
+  // Update the expand toggle handler
+  const handleExpandToggle = () => {
+    const newExpandedState = !isLocalExpanded
+    setIsLocalExpanded(newExpandedState)
+    onExpandChange?.(newExpandedState)
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <div 
+        ref={containerRef}
         className="relative w-full h-full rounded-lg border border-border/50 overflow-hidden"
-        onClick={handleCanvasClick}
       >
-        {/* Only show the dropzone overlay when actively dragging files */}
+        {!hideExpandButton && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10"
+            onClick={handleExpandToggle}
+          >
+            {isLocalExpanded ? (
+              <>
+                <Minimize2 className="h-4 w-4" />
+                <span className="sr-only">Close expanded view</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-4 w-4" />
+                <span className="sr-only">Open expanded view</span>
+              </>
+            )}
+          </Button>
+        )}
+
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full"
+          style={{ backgroundColor: moodboard.background_color }}
+        />
+
         {isDragActive && (
           <div
             {...getRootProps()}
@@ -248,11 +334,10 @@ export function MoodboardCanvas({
         )}
 
         <div
-          ref={canvasRef}
-          id="moodboard-canvas"
+          id="moodboard-canvas" // Add this ID here
           className="h-full w-full relative paper-texture moodboard-canvas"
           style={{ backgroundColor: moodboard.background_color }}
-          onClick={() => setSelectedItemId(null)}
+          onClick={handleCanvasClick}
         >
           {moodboard.items.map((item) => (
             <motion.div
@@ -295,6 +380,15 @@ export function MoodboardCanvas({
           ))}
         </div>
       </div>
+
+      <CanvasExpand
+        open={isLocalExpanded}
+        onOpenChange={setIsLocalExpanded}
+        moodboard={moodboard}
+        onChange={onChange}
+        onTextSelect={onTextSelect}
+        selectedTextItem={selectedTextItem}
+      />
 
       <div className="flex justify-between items-center mt-4">
         <div className="flex gap-2">

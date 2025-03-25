@@ -5,21 +5,11 @@ import { useSupabase } from "@/components/supabase-provider"
 import { MoodboardCanvas } from "@/components/moodboard/moodboard-canvas"
 import { MoodboardToolbar } from "@/components/moodboard/moodboard-toolbar"
 import { MoodboardSidebar } from "@/components/moodboard/moodboard-sidebar"
+import { MoodboardHeader } from "@/components/moodboard/moodboard-header"
 import { useToast } from "@/components/ui/use-toast"
-import { Button } from "@/components/ui/button"
-import { LogOut, Menu, X, User, ChevronDown, Save, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { MoodboardType } from "@/types/moodboard"
 import type { TextItem, TextStyle } from "@/types/moodboard"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function MoodboardApp() {
   const { supabase, user } = useSupabase()
@@ -279,18 +269,6 @@ export function MoodboardApp() {
     )
   }
 
-  // Get user initials for avatar
-  const getUserInitials = () => {
-    if (!user) return "U"
-    const name = user.user_metadata?.full_name || user.email || ""
-    return name
-      .split(" ")
-      .map((part: string) => part[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -298,43 +276,22 @@ export function MoodboardApp() {
       className="flex flex-col h-full w-full"
       style={{ height: "calc(100vh - 8rem)" }}
     >
-      <div className="flex justify-between items-center mb-4 bg-background/50 backdrop-blur-sm py-3 px-4 rounded-lg border border-border/30 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
-          <h1 className="font-clash text-xl md:text-2xl font-medium truncate select-none">
-            {currentMoodboard?.title || "Untitled Moodboard"}
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-2">
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback>{getUserInitials()}</AvatarFallback>
-                </Avatar>
-                <span className="hidden md:inline-block">{user?.user_metadata?.full_name || user?.email}</span>
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Sign out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <MoodboardHeader
+        moodboard={currentMoodboard}
+        hasUnsavedChanges={hasUnsavedChanges}
+        sidebarOpen={sidebarOpen}
+        onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+        onTitleChange={(title) => {
+          if (currentMoodboard) {
+            const updatedMoodboard = {
+              ...currentMoodboard,
+              title
+            }
+            setCurrentMoodboard(updatedMoodboard)
+            setHasUnsavedChanges(true)
+          }
+        }}
+      />
 
       <div className="flex flex-1 gap-4 moodboard-layout">
         <AnimatePresence>
