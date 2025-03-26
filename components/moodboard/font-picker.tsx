@@ -6,16 +6,11 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, X, Check, ChevronDown, AlertCircle, ArrowUpDown } from "lucide-react"
+import { Search, Check, ChevronDown, AlertCircle, ArrowUpDown } from "lucide-react"
 import { getGoogleFonts, getFontUrl } from "@/lib/utils/fonts"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface FontPickerProps {
   value?: string
@@ -43,11 +38,12 @@ export function FontPicker({ value, onChange, expanded = false }: FontPickerProp
         setLoading(true)
         setError(null)
 
-        // Check if API key is available
-        if (!process.env.NEXT_PUBLIC_GOOGLE_FONTS_API_KEY) {
-          console.warn("Google Fonts API key is not set. Using fallback fonts.")
-          setError("API key missing")
-          // Use fallback fonts if API key is missing
+        // Check if API key is available - we'll use the existing one
+        const googleFonts = await getGoogleFonts()
+
+        if (googleFonts.length === 0) {
+          setError("No fonts returned from API")
+          // Use fallback fonts if API returns no fonts
           const fallbackFonts = [
             { family: "Arial", variants: ["regular", "700"], category: "sans-serif" },
             { family: "Verdana", variants: ["regular", "700"], category: "sans-serif" },
@@ -57,27 +53,25 @@ export function FontPicker({ value, onChange, expanded = false }: FontPickerProp
           ]
           setFonts(fallbackFonts)
           setFilteredFonts(fallbackFonts)
-          return
+        } else {
+          // Limit to first 100 fonts for performance
+          const limitedFonts = googleFonts.slice(0, 100)
+          setFonts(limitedFonts)
+          setFilteredFonts(limitedFonts)
         }
-
-        const googleFonts = await getGoogleFonts()
-
-        if (googleFonts.length === 0) {
-          setError("No fonts returned from API")
-        }
-
-        // Limit to first 100 fonts for performance
-        const limitedFonts = googleFonts.slice(0, 100)
-        setFonts(limitedFonts)
-        setFilteredFonts(limitedFonts)
       } catch (err) {
         console.error("Error loading fonts:", err)
         setError("Failed to load fonts")
-        toast({
-          variant: "destructive",
-          title: "Error loading fonts",
-          description: "Please check your API key and try again.",
-        })
+        // Use fallback fonts if API fails
+        const fallbackFonts = [
+          { family: "Arial", variants: ["regular", "700"], category: "sans-serif" },
+          { family: "Verdana", variants: ["regular", "700"], category: "sans-serif" },
+          { family: "Helvetica", variants: ["regular", "700"], category: "sans-serif" },
+          { family: "Times New Roman", variants: ["regular", "700"], category: "serif" },
+          { family: "Georgia", variants: ["regular", "700"], category: "serif" },
+        ]
+        setFonts(fallbackFonts)
+        setFilteredFonts(fallbackFonts)
       } finally {
         setLoading(false)
       }
@@ -147,16 +141,12 @@ export function FontPicker({ value, onChange, expanded = false }: FontPickerProp
   if (!expanded) {
     return (
       <>
-        <Button 
-          variant="outline" 
-          className="w-full justify-between" 
-          onClick={() => setIsDialogOpen(true)}
-        >
-          <span 
+        <Button variant="outline" className="w-full justify-between" onClick={() => setIsDialogOpen(true)}>
+          <span
             className="truncate flex items-center gap-2"
-            style={{ 
-              fontFamily: value || 'inherit',
-              fontWeight: 'normal'
+            style={{
+              fontFamily: value || "inherit",
+              fontWeight: "normal",
             }}
           >
             <span>Aa</span>
@@ -233,7 +223,7 @@ export function FontPicker({ value, onChange, expanded = false }: FontPickerProp
 }
 
 // Dialog version of the font picker
-type SortOption = 'popularity' | 'alphabetical'
+type SortOption = "popularity" | "alphabetical"
 
 interface FontPickerDialogProps {
   open: boolean
@@ -260,12 +250,12 @@ function FontPickerDialog({
   loading,
   error,
 }: FontPickerDialogProps) {
-  const [sortBy, setSortBy] = useState<SortOption>('popularity')
+  const [sortBy, setSortBy] = useState<SortOption>("popularity")
   const [tempSelectedFont, setTempSelectedFont] = useState<string | undefined>(selectedFont)
 
   const getSortedFonts = useCallback(() => {
     return [...fonts].sort((a, b) => {
-      if (sortBy === 'alphabetical') {
+      if (sortBy === "alphabetical") {
         return a.family.localeCompare(b.family)
       }
       return 0
@@ -300,7 +290,7 @@ function FontPickerDialog({
                 onChange={(e) => onSearchChange(e.target.value)}
               />
             </div>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="h-10 w-10">
@@ -309,15 +299,15 @@ function FontPickerDialog({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  onClick={() => setSortBy('popularity')}
-                  className={sortBy === 'popularity' ? 'bg-muted' : ''}
+                <DropdownMenuItem
+                  onClick={() => setSortBy("popularity")}
+                  className={sortBy === "popularity" ? "bg-muted" : ""}
                 >
                   Sort by popularity
                 </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setSortBy('alphabetical')}
-                  className={sortBy === 'alphabetical' ? 'bg-muted' : ''}
+                <DropdownMenuItem
+                  onClick={() => setSortBy("alphabetical")}
+                  className={sortBy === "alphabetical" ? "bg-muted" : ""}
                 >
                   Sort alphabetically
                 </DropdownMenuItem>
@@ -327,12 +317,10 @@ function FontPickerDialog({
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Sorted by {sortBy === 'popularity' ? 'popularity' : 'alphabetical order'}
+              Sorted by {sortBy === "popularity" ? "popularity" : "alphabetical order"}
             </p>
             {tempSelectedFont && tempSelectedFont !== selectedFont && (
-              <p className="text-sm text-muted-foreground">
-                Selected: {tempSelectedFont}
-              </p>
+              <p className="text-sm text-muted-foreground">Selected: {tempSelectedFont}</p>
             )}
           </div>
 
@@ -364,9 +352,7 @@ function FontPickerDialog({
                     </Button>
                   ))
                 ) : (
-                  <div className="p-8 text-center text-muted-foreground">
-                    No fonts match your search
-                  </div>
+                  <div className="p-8 text-center text-muted-foreground">No fonts match your search</div>
                 )}
               </div>
             </ScrollArea>

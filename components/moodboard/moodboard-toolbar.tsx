@@ -1,12 +1,17 @@
 "use client"
 
-import { DialogFooter } from "@/components/ui/dialog"
-
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -23,6 +28,8 @@ import {
   Copy,
   Trash,
   Settings,
+  FileType,
+  Image,
 } from "lucide-react"
 import type { MoodboardType } from "@/types/moodboard"
 import type { TextItem, TextStyle } from "@/types/moodboard"
@@ -30,9 +37,9 @@ import { toPng } from "html-to-image"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { TextControls } from "./text-controls"
 import { Separator } from "@/components/ui/separator"
-import { jsPDF as JsPDF } from "jspdf"
+import { jsPDF } from "jspdf"
 import html2canvas from "html2canvas"
-import type { Options as Html2CanvasOptions } from 'html2canvas'
+import type { Options as Html2CanvasOptions } from "html2canvas"
 
 interface MoodboardToolbarProps {
   moodboard: MoodboardType | null
@@ -59,6 +66,7 @@ export function MoodboardToolbar({
   const [title, setTitle] = useState(moodboard?.title || "")
   const [isExporting, setIsExporting] = useState(false)
   const [isTextControlsOpen, setIsTextControlsOpen] = useState(false)
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const handleSave = async () => {
@@ -99,6 +107,7 @@ export function MoodboardToolbar({
         const dataUrl = await toPng(canvas, {
           quality: 0.95,
           pixelRatio: 3, // Higher resolution
+          cacheBust: true, // Avoid caching issues
         })
 
         const link = document.createElement("a")
@@ -111,37 +120,49 @@ export function MoodboardToolbar({
           description: "Your moodboard has been exported as a high-resolution PNG image.",
         })
       } else {
-        const options: Html2CanvasOptions = {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          scrollX: 0,
-          scrollY: 0,
-          windowWidth: canvas.scrollWidth,
-          windowHeight: canvas.scrollHeight,
-          backgroundColor: null,
-          x: 0,
-          y: 0,
-          width: canvas.scrollWidth,
-          height: canvas.scrollHeight
+        // Export as PDF
+        try {
+          const options: Html2CanvasOptions = {
+            scale: 2, // Higher quality
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: moodboard.background_color || "#ffffff",
+            logging: false,
+            // Ensure we capture the entire canvas
+            windowWidth: canvas.scrollWidth,
+            windowHeight: canvas.scrollHeight,
+          }
+
+          const renderedCanvas = await html2canvas(canvas, options)
+
+          // Create PDF with proper dimensions
+          const imgWidth = renderedCanvas.width
+          const imgHeight = renderedCanvas.height
+
+          // Determine orientation based on aspect ratio
+          const orientation = imgWidth > imgHeight ? "landscape" : "portrait"
+
+          const pdf = new jsPDF({
+            orientation,
+            unit: "px",
+            format: [imgWidth, imgHeight],
+          })
+
+          // Add the image to the PDF
+          const imgData = renderedCanvas.toDataURL("image/jpeg", 1.0)
+          pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight)
+
+          // Save the PDF
+          pdf.save(`${moodboard.title.replace(/\s+/g, "-").toLowerCase() || "moodboard"}.pdf`)
+
+          toast({
+            title: "Export successful",
+            description: "Your moodboard has been exported as a PDF document.",
+          })
+        } catch (pdfError) {
+          console.error("PDF export error:", pdfError)
+          throw new Error("Failed to generate PDF")
         }
-
-        const renderedCanvas = await html2canvas(canvas, options)
-
-        const imgData = renderedCanvas.toDataURL("image/jpeg", 1.0)
-        const pdf = new JsPDF({
-          orientation: "landscape",
-          unit: "px",
-          format: [renderedCanvas.width, renderedCanvas.height],
-        })
-
-        pdf.addImage(imgData, "JPEG", 0, 0, renderedCanvas.width, renderedCanvas.height)
-        pdf.save(`${moodboard.title.replace(/\s+/g, "-").toLowerCase() || "moodboard"}.pdf`)
-
-        toast({
-          title: "Export successful",
-          description: "Your moodboard has been exported as a PDF document.",
-        })
       }
     } catch (error) {
       console.error("Error exporting moodboard:", error)
@@ -152,6 +173,7 @@ export function MoodboardToolbar({
       })
     } finally {
       setIsExporting(false)
+      setIsExportDialogOpen(false)
     }
   }
 
@@ -170,6 +192,16 @@ export function MoodboardToolbar({
       title: "Share link copied",
       description: "The share link has been copied to your clipboard.",
     })
+  }
+
+  const handleTextStyleChange = (newStyle: TextStyle) => {
+    if (selectedTextItem && onTextStyleChange) {
+      // Ensure we preserve the fontFamily when updating other style properties
+      onTextStyleChange({
+        ...newStyle,
+        fontFamily: newStyle.fontFamily || selectedTextItem.style.fontFamily,
+      })
+    }
   }
 
   if (!moodboard) return null
@@ -279,10 +311,7 @@ export function MoodboardToolbar({
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-4" align="end">
                   {selectedTextItem ? (
-                    <TextControls
-                      style={selectedTextItem.style}
-                      onChange={(newStyle) => onTextStyleChange?.(newStyle)}
-                    />
+                    <TextControls style={selectedTextItem.style} onChange={handleTextStyleChange} />
                   ) : (
                     <div className="p-4 text-center text-muted-foreground">Select a text element to edit its style</div>
                   )}
@@ -306,33 +335,18 @@ export function MoodboardToolbar({
             <TooltipTrigger asChild>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isExporting}
-                    className="gap-2"
-                  >
+                  <Button size="sm" variant="outline" disabled={isExporting} className="gap-2">
                     <Download className="h-4 w-4" />
-                    <span className="hidden sm:inline">
-                      {isExporting ? "Exporting..." : "Export"}
-                    </span>
+                    <span className="hidden sm:inline">{isExporting ? "Exporting..." : "Export"}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => handleExport("png")}
-                    disabled={isExporting}
-                    className="gap-2"
-                  >
-                    <Download className="h-4 w-4" />
+                  <DropdownMenuItem onClick={() => handleExport("png")} disabled={isExporting} className="gap-2">
+                    <Image className="h-4 w-4" />
                     <span>High-Res PNG</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport("pdf")}
-                    disabled={isExporting}
-                    className="gap-2"
-                  >
-                    <Download className="h-4 w-4" />
+                  <DropdownMenuItem onClick={() => handleExport("pdf")} disabled={isExporting} className="gap-2">
+                    <FileType className="h-4 w-4" />
                     <span>PDF Document</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

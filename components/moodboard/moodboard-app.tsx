@@ -210,7 +210,7 @@ export function MoodboardApp() {
 
     const updatedItems = currentMoodboard.items.map(item => 
       item.id === selectedTextItem.id 
-        ? { ...item, style: newStyle } 
+        ? { ...item, style: { ...selectedTextItem.style, ...newStyle } } 
         : item
     )
 
@@ -219,6 +219,12 @@ export function MoodboardApp() {
       items: updatedItems
     }
 
+    // Update the selected text item with the new style
+    setSelectedTextItem({
+      ...selectedTextItem,
+      style: { ...selectedTextItem.style, ...newStyle }
+    })
+
     setCurrentMoodboard(updatedMoodboard)
     setHasUnsavedChanges(true)
   }
@@ -226,11 +232,28 @@ export function MoodboardApp() {
   const handleMoodboardChange = (updatedMoodboard: MoodboardType) => {
     setCurrentMoodboard(updatedMoodboard)
     setHasUnsavedChanges(true)
-    setSelectedTextItem(null)
+    
+    // Find the most recently added text item if no text is currently selected
+    if (!selectedTextItem) {
+      const textItems = updatedMoodboard.items.filter(item => item.type === 'text')
+      if (textItems.length > 0) {
+        // Select the last added text item
+        const lastTextItem = textItems[textItems.length - 1] as TextItem
+        setSelectedTextItem(lastTextItem)
+      }
+    } else {
+      // Check if currently selected text item still exists
+      const textItemStillExists = updatedMoodboard.items.some(
+        item => item.type === 'text' && item.id === selectedTextItem.id
+      )
+      if (!textItemStillExists) {
+        setSelectedTextItem(null)
+      }
+    }
   }
 
-  const handleTextSelect = (item: TextItem | null) => {
-    setSelectedTextItem(item)
+  const handleTextSelect = (textItem: TextItem | null) => {
+    setSelectedTextItem(textItem)
   }
 
   const deleteMoodboard = async (id: string) => {
@@ -338,6 +361,7 @@ export function MoodboardApp() {
           <MoodboardCanvas
             moodboard={currentMoodboard}
             onChange={handleMoodboardChange}
+            onSave={saveMoodboard}
             onTextSelect={handleTextSelect}
             selectedTextItem={selectedTextItem}
           />
@@ -348,3 +372,6 @@ export function MoodboardApp() {
     </motion.div>
   )
 }
+
+      
+  

@@ -91,7 +91,13 @@ export function TextControls({ style, onChange }: TextControlsProps) {
     // Ensure font size is within bounds
     const newSize = Math.min(Math.max(value, 8), 72)
     setFontSize(newSize)
-    onChange({ ...style, fontSize: newSize })
+    // Make sure we preserve the fontFamily when changing font size
+    onChange({
+      ...style,
+      fontSize: newSize,
+      // Explicitly preserve the fontFamily to prevent it from being lost
+      fontFamily: style.fontFamily,
+    })
   }
 
   const incrementFontSize = () => {
@@ -170,10 +176,8 @@ export function TextControls({ style, onChange }: TextControlsProps) {
     setIsTransparent(!isTransparent)
   }
 
-  const [confirmedFont, setConfirmedFont] = useState(style.fontFamily)
-
+  // Handle font change
   const handleFontChange = (font: string) => {
-    setConfirmedFont(font)
     onChange({
       ...style,
       fontFamily: font,
@@ -226,24 +230,18 @@ export function TextControls({ style, onChange }: TextControlsProps) {
               </div>
 
               <div className="space-y-2 mt-4">
-  <Label className="text-sm font-medium">Font Family</Label>
-  <FontPicker value={style.fontFamily} onChange={handleFontChange} />
-  {confirmedFont ? (
-    <div className="mt-2 p-2 rounded-md bg-muted/10">
-      <p className="text-sm text-muted-foreground">
-        <span className="opacity-70">Selected font:</span>{" "}
-        <span 
-          className="text-base mt-1" 
-          style={{ fontFamily: confirmedFont }}
-        >
-          {confirmedFont}
-        </span>
-      </p>
-    </div>
-  ) : (
-    <p className="text-sm text-muted-foreground mt-1.5">
-      No font selected
-    </p>
+                <Label className="text-sm font-medium">Font Family</Label>
+                <FontPicker value={style.fontFamily} onChange={handleFontChange} />
+
+                {style.fontFamily && (
+                  <div className="mt-2 p-2 rounded-md bg-muted/10 border border-border/30">
+                    <p className="text-sm flex items-center justify-between">
+                      <span className="text-muted-foreground">Preview:</span>
+                      <span className="text-base font-medium" style={{ fontFamily: style.fontFamily }}>
+                        {style.fontFamily}
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
 
