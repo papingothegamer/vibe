@@ -6,23 +6,41 @@ import { useDropzone } from "react-dropzone"
 import { extractColors } from "@/lib/color-extractor"
 import { useSupabase } from "@/components/supabase-provider"
 import { useToast } from "@/components/ui/use-toast"
-import type { MoodboardType, ImageItem, TextItem, ItemType } from "@/types/moodboard"
+import type { MoodboardType, ImageItem, TextItem, ItemType, TextStyle } from "@/types/moodboard"
 import { ImageItemComponent } from "@/components/moodboard/image-item"
 import { TextItemComponent } from "@/components/moodboard/text-item"
 import { ColorPalette } from "@/components/moodboard/color-palette"
-import { Type, Upload } from "lucide-react"
+import { Type, Upload, Maximize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { v4 as uuidv4 } from "uuid"
+
+// IMPORTANT: Remove the import of CanvasExpand to break the circular dependency
+// import { CanvasExpand } from "./canvas-expand"
 
 interface MoodboardCanvasProps {
   moodboard: MoodboardType
   onChange: (moodboard: MoodboardType) => void
-  onSave: (moodboard: MoodboardType) => void
-  onTextSelect?: (textItem: TextItem | null) => void
+  onSave: (moodboard: MoodboardType) => Promise<void>
+  // Add the missing props
+  onTextSelect?: (item: TextItem | null) => void
   selectedTextItem?: TextItem | null
+  isExpanded?: boolean
+  onExpandChange?: (open: boolean) => void
+  hideExpandButton?: boolean
+  onTextStyleChange?: (style: TextStyle) => void
 }
 
-export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, selectedTextItem }: MoodboardCanvasProps) {
+export function MoodboardCanvas({
+  moodboard,
+  onChange,
+  onSave,
+  onTextSelect,
+  selectedTextItem,
+  isExpanded = false,
+  onExpandChange,
+  hideExpandButton = false,
+  onTextStyleChange,
+}: MoodboardCanvasProps) {
   const { supabase, user } = useSupabase()
   const { toast } = useToast()
   const [isDragging, setIsDragging] = useState(false)
@@ -30,58 +48,48 @@ export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, sel
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isUploading, setIsUploading] = useState(false)
 
+  // Sync the selected item with the selectedTextItem prop
+  useEffect(() => {
+    if (selectedTextItem) {
+      setSelectedItemId(selectedTextItem.id)
+    }
+  }, [selectedTextItem])
+
   const handleItemSelect = (id: string) => {
     setSelectedItemId(id === selectedItemId ? null : id)
-    
-    // If this is a text item, notify parent component
-    if (onTextSelect) {
-      const item = moodboard.items.find(item => item.id === id)
-      if (item && item.type === "text") {
-        onTextSelect(item as TextItem)
-      } else if (id === selectedItemId) {
-        // If deselecting, pass null
+
+    // Find the selected item
+    const selectedItem = moodboard.items.find((item) => item.id === id)
+
+    // If it's a text item, call onTextSelect
+    if (selectedItem && selectedItem.type === "text" && onTextSelect) {
+      onTextSelect(selectedItem as TextItem)
+    } else if (onTextSelect) {
+      onTextSelect(null)
+    }
+  }
+
+  const handleItemDelete = (id: string) => {
+    const updatedItems = moodboard.items.filter((item) => item.id !== id)
+    onChange({ ...moodboard, items: updatedItems })
+
+    // If the deleted item was selected, clear selection
+    if (id === selectedItemId) {
+      setSelectedItemId(null)
+      if (onTextSelect) {
         onTextSelect(null)
       }
     }
   }
 
-  const handleItemDelete = (id: string) => {
-    // If deleting the currently selected text item, deselect it
-    if (selectedTextItem && selectedTextItem.id === id && onTextSelect) {
-      onTextSelect(null)
-    }
-    
-    const updatedItems = moodboard.items.filter((item) => item.id !== id)
-    onChange({ ...moodboard, items: updatedItems })
-  }
-
   const handleItemUpdate = (updatedItem: ItemType) => {
-    const updatedItems = moodboard.items.map((item) => {
-      if (item.id === updatedItem.id) {
-        // For text items, ensure we preserve the fontFamily when updating
-        if (item.type === "text" && updatedItem.type === "text") {
-          const textItem = updatedItem as TextItem
-          
-          // If this is the selected text item, update the parent's reference too
-          if (selectedTextItem && selectedTextItem.id === item.id && onTextSelect) {
-            onTextSelect(textItem)
-          }
-          
-          return {
-            ...updatedItem,
-            style: {
-              ...updatedItem.style,
-              // Explicitly preserve fontFamily if it exists in the original item
-              fontFamily: updatedItem.style.fontFamily || (item as TextItem).style.fontFamily,
-            },
-          }
-        }
-        return updatedItem
-      }
-      return item
-    })
-
+    const updatedItems = moodboard.items.map((item) => (item.id === updatedItem.id ? updatedItem : item))
     onChange({ ...moodboard, items: updatedItems })
+
+    // If the updated item is the selected text item, update it
+    if (updatedItem.id === selectedItemId && updatedItem.type === "text" && onTextSelect) {
+      onTextSelect(updatedItem as TextItem)
+    }
   }
 
   const handleAddText = () => {
@@ -107,8 +115,8 @@ export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, sel
     })
 
     setSelectedItemId(newTextItem.id)
-    
-    // Automatically select the new text item
+
+    // Select the new text item
     if (onTextSelect) {
       onTextSelect(newTextItem)
     }
@@ -187,7 +195,7 @@ export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, sel
 
       setIsUploading(false)
     },
-    [moodboard, supabase, onChange, toast, user, onTextSelect],
+    [moodboard, supabase, onChange, toast, user],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -249,10 +257,17 @@ export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, sel
     })
 
     setSelectedItemId(newItem.id)
-    
-    // If duplicating a text item, select it
-    if (item.type === "text" && onTextSelect) {
+
+    // If it's a text item, select it
+    if (newItem.type === "text" && onTextSelect) {
       onTextSelect(newItem as TextItem)
+    }
+  }
+
+  // Handle expand button click
+  const handleExpandClick = () => {
+    if (onExpandChange) {
+      onExpandChange(true)
     }
   }
 
@@ -270,18 +285,30 @@ export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, sel
           </div>
         )}
 
+        {/* Expand button */}
+        {!hideExpandButton && onExpandChange && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="absolute top-2 right-2 z-10 h-8 w-8 bg-background/80 backdrop-blur-sm"
+            onClick={handleExpandClick}
+          >
+            <Maximize2 className="h-4 w-4" />
+            <span className="sr-only">Expand canvas</span>
+          </Button>
+        )}
+
         <div
           ref={canvasRef}
           id="moodboard-canvas"
           className="h-full w-full relative paper-texture moodboard-canvas"
           style={{ backgroundColor: moodboard.background_color }}
-          onClick={(e) => {
-            // Only deselect if clicking directly on the canvas (not on an item)
-            if (e.target === e.currentTarget) {
-              setSelectedItemId(null)
-              if (onTextSelect) onTextSelect(null)
+          onClick={() => {
+            setSelectedItemId(null)
+            if (onTextSelect) {
+              onTextSelect(null)
             }
-          }}
+          }} // Deselect when clicking on empty canvas
         >
           {moodboard.items.map((item) => (
             <motion.div
@@ -294,7 +321,7 @@ export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, sel
                 left: item.position.x,
                 top: item.position.y,
                 zIndex: item.zIndex,
-                transform: `rotate(${Math.random() * 6 - 3}deg)`,
+                transform: `rotate(${item.rotation || Math.random() * 6 - 3}deg)`,
               }}
             >
               {item.type === "image" ? (
@@ -362,6 +389,9 @@ export function MoodboardCanvas({ moodboard, onChange, onSave, onTextSelect, sel
 
         <ColorPalette moodboard={moodboard} onChange={onChange} />
       </div>
+
+      {/* IMPORTANT: Remove the CanvasExpand component from here */}
     </div>
   )
 }
+

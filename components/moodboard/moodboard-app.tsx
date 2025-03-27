@@ -6,6 +6,7 @@ import { MoodboardCanvas } from "@/components/moodboard/moodboard-canvas"
 import { MoodboardToolbar } from "@/components/moodboard/moodboard-toolbar"
 import { MoodboardSidebar } from "@/components/moodboard/moodboard-sidebar"
 import { MoodboardHeader } from "@/components/moodboard/moodboard-header"
+import { CanvasExpand } from "@/components/moodboard/canvas-expand"
 import { useToast } from "@/components/ui/use-toast"
 import { motion, AnimatePresence } from "framer-motion"
 import type { MoodboardType } from "@/types/moodboard"
@@ -20,6 +21,7 @@ export function MoodboardApp() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [selectedTextItem, setSelectedTextItem] = useState<TextItem | null>(null)
+  const [isExpanded, setIsExpanded] = useState(false)
   const { toast } = useToast()
 
   // Load user's moodboards
@@ -61,30 +63,29 @@ export function MoodboardApp() {
   // Set up real-time subscription for moodboard deletions
   useEffect(() => {
     const channel = supabase
-      .channel('moodboards')
-      .on('postgres_changes', 
-        { 
-          event: 'DELETE', 
-          schema: 'public', 
-          table: 'moodboards' 
+      .channel("moodboards")
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "moodboards",
         },
         (payload) => {
           // Remove the deleted moodboard from state
-          setMoodboards(prev => 
-            prev.filter(board => board.id !== payload.old.id)
-          )
+          setMoodboards((prev) => prev.filter((board) => board.id !== payload.old.id))
           // If the deleted moodboard was selected, clear selection
           if (currentMoodboard?.id === payload.old.id) {
             setCurrentMoodboard(null)
           }
           toast({
             title: "Moodboard deleted",
-            description: "The moodboard has been removed"
+            description: "The moodboard has been removed",
           })
-        }
+        },
       )
       .subscribe()
-    
+
     return () => {
       supabase.removeChannel(channel)
     }
@@ -112,11 +113,11 @@ export function MoodboardApp() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault()
-        e.returnValue = ''
+        e.returnValue = ""
       }
     }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [hasUnsavedChanges])
 
   const createNewMoodboard = async () => {
@@ -160,22 +161,22 @@ export function MoodboardApp() {
 
     try {
       // Log the update payload for debugging
-      console.log('Saving moodboard:', {
+      console.log("Saving moodboard:", {
         id: updatedMoodboard.id,
         title: updatedMoodboard.title,
-        user_id: user.id
+        user_id: user.id,
       })
 
       const { error } = await supabase
-        .from('moodboards')
+        .from("moodboards")
         .update({
           title: updatedMoodboard.title,
           background_color: updatedMoodboard.background_color,
           items: updatedMoodboard.items,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', updatedMoodboard.id)
-        .eq('user_id', user.id)
+        .eq("id", updatedMoodboard.id)
+        .eq("user_id", user.id)
         .single()
 
       if (error) throw error
@@ -186,19 +187,19 @@ export function MoodboardApp() {
 
       toast({
         title: "Changes saved",
-        description: "Your moodboard has been updated successfully."
+        description: "Your moodboard has been updated successfully.",
       })
     } catch (error: any) {
       console.error("Error saving moodboard:", {
         message: error.message,
         details: error.details,
-        hint: error.hint
+        hint: error.hint,
       })
-      
+
       toast({
         variant: "destructive",
         title: "Error saving moodboard",
-        description: error.message || "Please try again later."
+        description: error.message || "Please try again later.",
       })
     } finally {
       setIsSaving(false)
@@ -208,21 +209,29 @@ export function MoodboardApp() {
   const handleTextStyleChange = (newStyle: TextStyle) => {
     if (!selectedTextItem || !currentMoodboard) return
 
-    const updatedItems = currentMoodboard.items.map(item => 
-      item.id === selectedTextItem.id 
-        ? { ...item, style: { ...selectedTextItem.style, ...newStyle } } 
-        : item
+    console.log("Applying text style change:", newStyle)
+
+    const updatedItems = currentMoodboard.items.map((item) =>
+      item.id === selectedTextItem.id && item.type === "text"
+        ? {
+            ...item,
+            style: {
+              ...selectedTextItem.style,
+              ...newStyle,
+            },
+          }
+        : item,
     )
 
     const updatedMoodboard = {
       ...currentMoodboard,
-      items: updatedItems
+      items: updatedItems,
     }
 
     // Update the selected text item with the new style
     setSelectedTextItem({
       ...selectedTextItem,
-      style: { ...selectedTextItem.style, ...newStyle }
+      style: { ...selectedTextItem.style, ...newStyle },
     })
 
     setCurrentMoodboard(updatedMoodboard)
@@ -232,10 +241,10 @@ export function MoodboardApp() {
   const handleMoodboardChange = (updatedMoodboard: MoodboardType) => {
     setCurrentMoodboard(updatedMoodboard)
     setHasUnsavedChanges(true)
-    
+
     // Find the most recently added text item if no text is currently selected
     if (!selectedTextItem) {
-      const textItems = updatedMoodboard.items.filter(item => item.type === 'text')
+      const textItems = updatedMoodboard.items.filter((item) => item.type === "text")
       if (textItems.length > 0) {
         // Select the last added text item
         const lastTextItem = textItems[textItems.length - 1] as TextItem
@@ -244,34 +253,46 @@ export function MoodboardApp() {
     } else {
       // Check if currently selected text item still exists
       const textItemStillExists = updatedMoodboard.items.some(
-        item => item.type === 'text' && item.id === selectedTextItem.id
+        (item) => item.type === "text" && item.id === selectedTextItem.id,
       )
-      if (!textItemStillExists) {
+
+      if (textItemStillExists) {
+        // Update the selected text item with any changes
+        const updatedTextItem = updatedMoodboard.items.find(
+          (item) => item.type === "text" && item.id === selectedTextItem.id,
+        ) as TextItem | undefined
+
+        if (updatedTextItem) {
+          setSelectedTextItem(updatedTextItem)
+        }
+      } else {
         setSelectedTextItem(null)
       }
     }
   }
 
   const handleTextSelect = (textItem: TextItem | null) => {
+    console.log("Text item selected:", textItem)
     setSelectedTextItem(textItem)
+  }
+
+  const handleExpandChange = (expanded: boolean) => {
+    setIsExpanded(expanded)
   }
 
   const deleteMoodboard = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("moodboards")
-        .delete()
-        .match({ id, user_id: user?.id })
+      const { error } = await supabase.from("moodboards").delete().match({ id, user_id: user?.id })
 
       if (error) throw error
-      
+
       // The real-time subscription will handle UI updates
     } catch (error: any) {
       console.error("Error deleting moodboard:", error)
       toast({
         variant: "destructive",
         title: "Delete failed",
-        description: error.message
+        description: error.message,
       })
     }
   }
@@ -308,7 +329,7 @@ export function MoodboardApp() {
           if (currentMoodboard) {
             const updatedMoodboard = {
               ...currentMoodboard,
-              title
+              title,
             }
             setCurrentMoodboard(updatedMoodboard)
             setHasUnsavedChanges(true)
@@ -347,31 +368,45 @@ export function MoodboardApp() {
         </AnimatePresence>
 
         <div className="flex-1 flex flex-col">
-      <MoodboardToolbar 
-        moodboard={currentMoodboard} 
-        onSave={saveMoodboard} 
-        isSaving={isSaving}
-        hasUnsavedChanges={hasUnsavedChanges}
-        selectedTextItem={selectedTextItem}
-        onTextStyleChange={handleTextStyleChange}
-      />
-
-      <div className="flex-1 moodboard-canvas-container">
-        {currentMoodboard && (
-          <MoodboardCanvas
+          <MoodboardToolbar
             moodboard={currentMoodboard}
-            onChange={handleMoodboardChange}
             onSave={saveMoodboard}
-            onTextSelect={handleTextSelect}
+            isSaving={isSaving}
+            hasUnsavedChanges={hasUnsavedChanges}
             selectedTextItem={selectedTextItem}
+            onTextStyleChange={handleTextStyleChange}
           />
-        )}
+
+          <div className="flex-1 moodboard-canvas-container">
+            {currentMoodboard && (
+              <MoodboardCanvas
+                moodboard={currentMoodboard}
+                onChange={handleMoodboardChange}
+                onSave={saveMoodboard}
+                onTextSelect={handleTextSelect}
+                selectedTextItem={selectedTextItem}
+                isExpanded={isExpanded}
+                onExpandChange={handleExpandChange}
+                onTextStyleChange={handleTextStyleChange}
+              />
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-      </div>
+
+      {/* Add CanvasExpand component here, outside of MoodboardCanvas */}
+      {currentMoodboard && (
+        <CanvasExpand
+          open={isExpanded}
+          onOpenChange={handleExpandChange}
+          moodboard={currentMoodboard}
+          onChange={handleMoodboardChange}
+          onTextSelect={handleTextSelect}
+          selectedTextItem={selectedTextItem}
+          onTextStyleChange={handleTextStyleChange}
+        />
+      )}
     </motion.div>
   )
 }
 
-      
-  

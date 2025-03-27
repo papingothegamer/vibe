@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { Rnd } from "react-rnd"
-import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Trash2, Copy, RotateCcw, RotateCw } from "lucide-react"
 import type { TextItem } from "@/types/moodboard"
@@ -52,9 +51,6 @@ export function TextItemComponent({ item, isSelected, onSelect, onDelete, onChan
       // Apply text alignment
       styles.textAlign = item.style.textAlign || "left"
       textRef.current.style.textAlign = styles.textAlign
-
-      // Log applied styles for debugging
-      console.log("Applied text styles:", styles)
     }
   }, [item.style.fontFamily, item.style.fontSize, item.style.fontWeight, item.style.color, item.style.textAlign])
 
@@ -155,7 +151,7 @@ export function TextItemComponent({ item, isSelected, onSelect, onDelete, onChan
         </div>
 
         {isSelected && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute -top-10 right-0 flex gap-1">
+          <div className="absolute -top-10 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               size="icon"
               variant="secondary"
@@ -201,7 +197,7 @@ export function TextItemComponent({ item, isSelected, onSelect, onDelete, onChan
               <Trash2 className="h-4 w-4" />
               <span className="sr-only">Delete</span>
             </Button>
-          </motion.div>
+          </div>
         )}
 
         <div className="drag-handle absolute top-0 left-0 w-full h-8 cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />
